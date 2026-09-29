@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs", "playwright.config.ts", "e2e/**/*.spec.ts"],
+      "project": ["scripts/**/*.mjs", "e2e/**/*.ts"]
+    },
+    "backend": {
+      "entry": ["src/server.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
+    "frontend": {
+      "entry": [
+        "src/app/**/page.tsx",
+        "src/app/**/layout.tsx",
+        "tests/**/*.test.{ts,tsx}",
+        "tests/setup.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    }
+  },
+  "ignoreDependencies": ["eslint-config-next", "tailwindcss"]
+}
