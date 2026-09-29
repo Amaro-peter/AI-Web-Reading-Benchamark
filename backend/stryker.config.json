@@ -1,0 +1,32 @@
+{
+  "$schema": "../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing is aimed at the modules where a silently wrong branch is dangerous: SSRF protection, URL validation, scoring and the benchmark orchestration. Running it over the whole codebase (jsdom parsing, SDK adapters) would multiply the runtime without testing anything a unit test does not already pin down.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "reporters": ["clear-text", "progress", "html", "json"],
+  "htmlReporter": { "fileName": "reports/mutation/index.html" },
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "mutate": [
+    "src/scraper/ssrf.ts",
+    "src/scraper/url-validation.ts",
+    "src/scraper/fetch-page.ts",
+    "src/evaluation/normalize.ts",
+    "src/evaluation/judge.ts",
+    "src/evaluation/score.ts",
+    "src/benchmark/run.ts",
+    "src/domain/benchmark.ts",
+    "src/domain/errors.ts",
+    "src/config/secrets.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "timeoutMS": 60000,
+  "concurrency": 4,
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": 80
+  }
+}

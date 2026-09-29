@@ -19,5 +19,5 @@
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     }
   },
-  "ignoreDependencies": ["tailwindcss", "vitest"]
+  "ignoreDependencies": ["tailwindcss", "vitest", "@vitest/coverage-v8"]
 }

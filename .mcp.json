@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "railway": {
+      "type": "stdio",
+      "command": "railway",
+      "args": ["mcp"],
+      "env": {}
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
+    }
+  }
+}

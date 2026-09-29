@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
+    "@vitest/coverage-v8": "^5.0.2",
     "concurrently": "^9.0.0",
     "husky": "^9.1.0",
     "knip": "^5.30.0",
