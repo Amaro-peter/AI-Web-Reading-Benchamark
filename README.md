@@ -1,1054 +1,630 @@
-Você é um engenheiro de software sênior trabalhando de forma AUTÔNOMA.
-
-Construa um MVP completo, testado e deploy-ready chamado:
-
 # AI Web Reading Benchmark
 
-O objetivo é medir quão bem diferentes IAs conseguem ler uma página web e extrair/compreender informações dela.
+Measures how well different AIs read a web page and extract information from it.
 
-As IAs iniciais são:
+You give it a URL. It fetches the page, extracts the main content, asks the same
+small set of questions about it to **Gemini**, **ChatGPT** and **Claude** in
+parallel, grades every answer against facts read off the page, and shows the
+results side by side.
 
-- Gemini
-- ChatGPT
-- Claude
+> **This is an experimental benchmark.** A result depends on the page, the
+> questions asked, the models configured and the evaluation method. A single run
+> is evidence about one page — it is not a ranking of these models, and the
+> product never presents it as one.
 
-O projeto deve ser suficientemente pequeno para ser implementado, testado e preparado para produção em aproximadamente 5 horas.
+---
 
-==================================================
-1. STACK
-==================================================
+## Contents
 
-Frontend:
+- [What it does](#what-it-does)
+- [Architecture](#architecture)
+- [Stack](#stack)
+- [Installation](#installation)
+- [Environment variables](#environment-variables)
+- [Running locally](#running-locally)
+- [Commands](#commands)
+- [Testing](#testing)
+- [Local CI](#local-ci)
+- [Pre-push hook](#pre-push-hook)
+- [Mutation testing](#mutation-testing)
+- [Security testing](#security-testing)
+- [SonarQube](#sonarqube)
+- [Deploying the backend to Railway](#deploying-the-backend-to-railway)
+- [Deploying the frontend to Vercel](#deploying-the-frontend-to-vercel)
+- [Limitations](#limitations)
 
-- Next.js
-- TypeScript
-- Tailwind CSS
-- Vitest
-- React Testing Library
-- Playwright
-- ESLint
+---
 
-Deploy:
-- Vercel
+## What it does
 
-Backend:
+1. Validates the URL, then checks the host is safe to fetch (see
+   [SSRF protection](#ssrf-protection)).
+2. Fetches the page under a timeout, a byte budget and a redirect limit.
+3. Extracts the main content with Mozilla Readability.
+4. Builds five questions grounded in that page, across three categories.
+5. Asks all three providers the same questions, in parallel.
+6. Grades each answer.
+7. Returns per-category and overall scores, plus every individual answer.
 
-- Node.js
-- TypeScript
-- Fastify
-- Vitest
-- Fastify inject para testes HTTP
-- Zod para validação
-- biblioteca madura de Readability/HTML parsing
-- ESLint
-- Prettier
+### The questions
 
-Deploy:
-- Railway
+Five templates, filled in from the page. This is deliberately a small fixed
+battery rather than a generator: **reproducibility matters more than
+sophistication**, and the same page must always produce the same questions and
+the same expected answers.
 
-Arquitetura:
+| # | Category | Question |
+|---|---|---|
+| 1 | `EXTRACTION` | What is the title of this page? |
+| 2 | `EXTRACTION` | Who wrote it? (or exactly `NOT IN PAGE`) |
+| 3 | `EXTRACTION` | What is the first section heading? |
+| 4 | `COMPREHENSION` | A sentence from the page with one value removed — supply it |
+| 5 | `RELATION` | Under which section heading does the page discuss "&lt;term&gt;"? |
 
+An expected answer is **only ever read off the page, never invented**. When a
+page cannot support a template — no headings, no numeric sentence, no sections —
+that question's expected answer is `null` and it is reported `NOT_EVALUABLE`
+rather than guessed at.
+
+### Scoring
+
+| Verdict | Score |
+|---|---|
+| `CORRECT` | 1 |
+| `PARTIAL` | 0.5 |
+| `INCORRECT` | 0 |
+| `NOT_EVALUABLE` | excluded from the total |
+
+`NOT_EVALUABLE` is excluded from the denominator, so a question nobody could
+have answered neither rewards nor punishes a model. When nothing on a run could
+be graded, the score is reported as `null`, never `0%` — "we could not measure
+this" and "it got everything wrong" are different results.
+
+### Evaluation
+
+Grading lives in `backend/src/evaluation/` behind a `Judge` interface, so the
+rule set can be replaced without touching the orchestrator or the API.
+
+The default judge is **deterministic string comparison, not an LLM**. Every
+question here has a gold answer read directly off the page, so grading needs no
+judgement — and an LLM judge would reintroduce exactly the variance the
+benchmark is trying to measure, while costing money and making results
+irreproducible. If you do want LLM-as-a-judge, implement `Judge`, pass it to
+`runBenchmark`, and the reported `judge` field will name it.
+
+Comparison normalises case, accents, punctuation and digit grouping, folds
+number words onto digits ("twenty five" → 25), and awards partial credit at 50%
+token overlap — except that **a wrong or missing number never earns partial
+credit**, because the number is usually the whole answer.
+
+---
+
+## Architecture
+
+```
 /
-  frontend/
-  backend/
-  README.md
-  package.json
-  .gitignore
+├── backend/                  Fastify API, deployed to Railway
+│   ├── src/
+│   │   ├── config/           env parsing, model config, secret redaction
+│   │   ├── domain/           categories, verdicts, errors, text helpers
+│   │   ├── scraper/          URL validation → SSRF guard → fetch → extract
+│   │   ├── providers/        one AIProvider seam + three SDK adapters + mocks
+│   │   ├── evaluation/       normalisation, Judge, scoring
+│   │   ├── benchmark/        question generation, orchestration
+│   │   └── http/             app, routes
+│   └── tests/                unit · integration · regression · spec · security · smoke
+├── frontend/                 Next.js single page, deployed to Vercel
+│   ├── src/app/              the page
+│   ├── src/components/       form, progress, results, table
+│   └── src/lib/              API client, types, formatting
+├── e2e/                      Playwright system tests + fixture server
+├── scripts/                  CI pipeline, coverage, audit, sonar
+└── docs/SPEC.md              the original project specification
+```
 
-Use TypeScript strict.
+**Request flow.** `HTTP → validation → scraping → benchmark → providers →
+evaluation → response`. Every layer is reached through an injectable seam, which
+is why the integration tests can drive the real route with the network and the
+providers stubbed.
 
-Não faça overengineering.
+**Providers.** Every vendor is adapted to one narrow interface, so nothing
+downstream imports an SDK:
 
-==================================================
-2. OBJETIVO DO PRODUTO
-==================================================
-
-O usuário informa uma URL.
-
-Exemplo:
-
-https://example.com/article
-
-O sistema:
-
-1. valida a URL;
-2. busca a página;
-3. extrai o conteúdo principal;
-4. cria um pequeno conjunto de perguntas;
-5. envia as mesmas informações para Gemini, ChatGPT e Claude;
-6. coleta as respostas;
-7. avalia as respostas;
-8. apresenta os resultados lado a lado.
-
-O produto deve deixar explícito que se trata de um benchmark experimental e que os resultados dependem:
-
-- da página;
-- das perguntas;
-- dos modelos;
-- do método de avaliação.
-
-==================================================
-3. ESCOPO FUNCIONAL
-==================================================
-
-Endpoint:
-
-GET /api/health
-
-POST /api/benchmark
-
-Input:
-
-{
-  "url": "https://example.com"
-}
-
-Output:
-
-{
-  "url": "...",
-  "page": {
-    "title": "...",
-    "wordCount": 1234
-  },
-  "questions": [],
-  "results": {
-    "gemini": {},
-    "openai": {},
-    "claude": {}
-  }
-}
-
-==================================================
-4. AI PROVIDERS
-==================================================
-
-Criar uma abstração:
-
+```ts
 interface AIProvider {
-  name: string;
-  model: string;
-
-  answer(input: {
-    pageContent: string;
-    question: string;
-  }): Promise<string>;
+  readonly name: string;
+  readonly model: string;
+  answer(input: { pageContent: string; question: string }): Promise<string>;
 }
+```
+
+A missing API key never breaks a run: that provider is reported `unavailable`
+with the name of the variable that would enable it, and the others still
+execute. Model ids live in one place (`backend/src/config/models.ts`) and can be
+overridden per provider.
+
+### API
+
+**`GET /api/health`** → `200`
+
+```json
+{ "status": "ok", "service": "AI Web Reading Benchmark", "version": "0.1.0", "uptimeSeconds": 12 }
+```
+
+**`POST /api/benchmark`**
+
+```json
+{ "url": "https://example.com/article" }
+```
+
+```jsonc
+{
+  "url": "…",
+  "finalUrl": "…",
+  "page": { "title": "…", "wordCount": 428, "truncated": false, /* … */ },
+  "questions": [{ "id": "q1-title", "category": "EXTRACTION", "prompt": "…", "expectedAnswer": "…" }],
+  "results": {
+    "gemini": { "status": "ok", "model": "…", "answers": [ /* … */ ], "scores": { /* … */ } },
+    "openai": { "status": "unavailable", "reason": "OPENAI_API_KEY is not configured.", "scores": null },
+    "claude": { /* … */ }
+  },
+  "judge": "heuristic",
+  "disclaimer": "Experimental benchmark. …"
+}
+```
+
+Error responses are `{ "error": { "code": "BLOCKED_HOST", "message": "…" } }`.
+Codes: `INVALID_URL`, `UNSUPPORTED_SCHEME`, `BLOCKED_HOST` (400),
+`RESPONSE_TOO_LARGE` (413), `TIMEOUT` (504), and `DNS_FAILURE`, `HTTP_ERROR`,
+`UNSUPPORTED_CONTENT_TYPE`, `TOO_MANY_REDIRECTS`, `FETCH_FAILED`,
+`EMPTY_CONTENT` (502).
+
+---
+
+## Stack
+
+| | |
+|---|---|
+| **Backend** | Node.js, TypeScript (strict), Fastify, Zod, Mozilla Readability + jsdom, ipaddr.js |
+| **Frontend** | Next.js (App Router), React, TypeScript (strict), Tailwind CSS |
+| **Providers** | `@anthropic-ai/sdk`, `openai`, `@google/genai` |
+| **Testing** | Vitest, Fastify `inject`, React Testing Library, Playwright, StrykerJS |
+| **Quality** | ESLint, Prettier, Knip, SonarQube, npm audit, Gitleaks |
+| **Deploy** | Railway (backend), Vercel (frontend) |
 
-Implementar:
+---
+
+## Installation
+
+Requires **Node.js ≥ 20.11** (developed on 24).
+
+```bash
+git clone https://github.com/Amaro-peter/AI-Web-Reading-Benchamark.git
+cd AI-Web-Reading-Benchamark
+npm ci
+```
+
+`npm ci` installs both workspaces. If npm reports packages with unapproved
+install scripts, run `npm approve-scripts --allow-scripts-pending` — `esbuild`
+and `unrs-resolver` need theirs to build native binaries.
+
+To run the E2E suite you also need the browser: `npx playwright install chromium`.
+
+---
+
+## Environment variables
+
+### Backend — `backend/.env`
+
+Copy the template and fill it in:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+The server reads `backend/.env` at startup using Node's built-in
+`process.loadEnvFile` (no `dotenv` dependency). **A variable already set in the
+real environment wins over the file**, so the credentials Railway injects are
+never shadowed by a stale `.env`. A missing `.env` is not an error.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `3001` | HTTP port |
+| `HOST` | `0.0.0.0` | bind address |
+| `NODE_ENV` | `development` | `development` \| `test` \| `production` |
+| `FRONTEND_URL` | `http://localhost:3000` | the origin allowed by CORS |
+| `GEMINI_API_KEY` | — | missing ⇒ Gemini reported `unavailable` |
+| `OPENAI_API_KEY` | — | missing ⇒ ChatGPT reported `unavailable` |
+| `ANTHROPIC_API_KEY` | — | missing ⇒ Claude reported `unavailable` |
+| `GEMINI_MODEL` | `gemini-2.5-pro` | model override |
+| `OPENAI_MODEL` | `gpt-4o` | model override |
+| `ANTHROPIC_MODEL` | `claude-opus-5` | model override |
+| `AI_PROVIDER_MODE` | `real` | `mock` uses deterministic in-process providers |
+| `SCRAPER_TIMEOUT_MS` | `10000` | page fetch timeout |
+| `SCRAPER_MAX_BYTES` | `2000000` | response size cap |
+| `MAX_CONTENT_CHARS` | `12000` | cap on text sent to a model |
+| `PROVIDER_TIMEOUT_MS` | `30000` | per-model-call timeout |
+| `SCRAPER_ALLOWED_HOSTS` | *(empty)* | hostnames exempt from the private-address guard — see below |
+
+> **The default model line-up is not matched for capability tier.** A flagship
+> model and a fast model will not produce comparable results. Pin comparable
+> models with the `*_MODEL` variables if you want a fair comparison. Every
+> result echoes the model that produced it.
+
+### Frontend — `frontend/.env.local`
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | backend base URL |
+
+**No secret may ever go in a `NEXT_PUBLIC_*` variable** — those are inlined into
+the browser bundle. Provider keys exist only in the backend environment, and a
+test suite asserts no key name is referenced from frontend sources.
+
+> `NEXT_PUBLIC_*` is inlined **at build time**, not read at runtime. Changing it
+> requires a rebuild; on Vercel it must be set before the build runs.
+
+---
+
+## Running locally
+
+```bash
+npm run dev
+```
 
-GeminiProvider
-OpenAIProvider
-ClaudeProvider
+Backend on `http://localhost:3001`, frontend on `http://localhost:3000`.
+
+**With no API keys at all** the app still works end to end — all three providers
+are simply reported as unavailable. To see a full result without spending
+anything, run the backend with deterministic stand-ins:
+
+```bash
+AI_PROVIDER_MODE=mock npm run dev
+```
 
-Usar os SDKs oficiais.
+---
 
-Environment variables:
+## Commands
 
-GEMINI_API_KEY=
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
+| Command | Purpose |
+|---|---|
+| `npm run dev` | run both apps in development |
+| `npm run build` | production build of backend + frontend |
+| `npm run typecheck` | TypeScript, zero errors accepted |
+| `npm run lint` | ESLint |
+| `npm run format` / `npm run format:check` | Prettier |
+| `npm run dead-code` | Knip |
+| `npm run test:unit` | unit tests |
+| `npm run test:integration` | integration tests |
+| `npm run test:regression` | regression tests |
+| `npm run test:spec` | specification tests |
+| `npm run test:security` | security tests |
+| `npm run test:smoke` | smoke tests |
+| `npm run test:mutation` | mutation tests |
+| `npm run test:e2e` | system / E2E tests |
+| `npm run test:live` | **manual only** — real APIs, costs money |
+| `npm run coverage` | coverage report |
+| `npm run coverage:verify` | fail below the coverage threshold |
+| `npm run security:audit` | `npm audit` + Gitleaks |
+| `npm run quality:sonar` | SonarQube analysis when available |
+| `npm run ci` | the full pipeline |
 
-Nenhuma API key pode chegar ao frontend.
+---
 
-Se uma API key não existir:
+## Testing
 
-- não quebrar o benchmark;
-- marcar o provider como unavailable;
-- continuar executando os demais.
+Tests are not a final step — every component was built with its tests.
 
-As chamadas devem ocorrer em paralelo.
+| Suite | Where | What it covers |
+|---|---|---|
+| **Unit** | `backend/tests/unit`, `frontend/tests/unit` | validation, SSRF, extraction, questions, scoring, normalisation, provider adapters, config, error handling, components |
+| **Integration** | `backend/tests/integration` | the real route via `fastify.inject`: valid and invalid URLs, empty page, scraping errors, unavailable provider, provider error, multiple providers, timeouts |
+| **Regression** | `backend/tests/regression` | fixed HTML fixtures with exact assertions on title, extracted content, questions, scoring and the API wire shape |
+| **Specification** | `backend/tests/spec` | each product requirement as one executable statement |
+| **Security** | `backend/tests/security`, `frontend/tests/security` | SSRF, invalid URLs, oversized input, malformed and malicious HTML, prompt-injection awareness, secret exposure |
+| **Smoke** | `backend/tests/smoke`, `frontend/tests/smoke`, `e2e/smoke.spec.ts` | the service boots, `/api/health` is 200, the frontend loads |
+| **E2E** | `e2e/` | browser → frontend → backend → mock providers → result |
 
-Criar configuração centralizada para modelos.
+**No test ever calls a real AI API.** The test and E2E environments run with
+`AI_PROVIDER_MODE=mock`, so it cannot happen by accident. `npm run test:live` is
+the one opt-in path; it is never part of `npm run ci`, requires the keys to be
+set explicitly, and costs money.
 
-==================================================
-5. WEB SCRAPING
-==================================================
+Run a single test:
 
-Usar biblioteca madura para extrair conteúdo principal.
+```bash
+npx vitest run tests/unit/judge.test.ts -t "awards PARTIAL at exactly the threshold" --root backend
+```
 
-Não criar parser HTML próprio.
+### Regression policy
 
-Extrair:
+When a bug is found: reproduce it, add the test, fix the code, keep the test.
+The regression suite has already earned this — it caught Mozilla Readability
+0.6 starting to include the byline paragraph in the article body, which would
+otherwise have silently changed every word count.
 
-- title
-- headings
-- main text
-- metadata quando disponível
+---
 
-Remover conteúdo irrelevante como:
+## Local CI
 
-- script
-- style
-- navegação
-- elementos claramente não pertencentes ao artigo/conteúdo.
+```bash
+npm run ci
+```
 
-Definir limite máximo de conteúdo enviado às APIs.
+Runs every gate in order, stops at the first failure of a required stage, and
+exits non-zero:
 
-Adicionar timeout.
+`clean → install → typecheck → lint → format → dead-code → unit → integration →
+regression → spec → security → audit → smoke → mutation → build → e2e →
+coverage → coverage verification → SonarQube`
 
-==================================================
-6. SEGURANÇA DO SCRAPER
-==================================================
+Smoke tests run before the slow suites. The summary reports each stage and names
+any stage that was **NOT RUN** because the pipeline stopped earlier — it never
+reports a stage it did not execute.
 
-O usuário controla a URL.
+A full run takes roughly **9 minutes**, most of it mutation testing.
 
-Implementar proteção básica contra SSRF.
+`CI_SKIP=<stage,…>` exists for debugging one stage in isolation. It prints a
+warning, and such a run is explicitly **not** a green pipeline.
 
-Bloquear:
+---
 
-- localhost
-- 127.0.0.1
-- ::1
-- 0.0.0.0
-- redes privadas
-- file://
-- javascript://
-- data://
-- esquemas diferentes de HTTP/HTTPS
+## Pre-push hook
 
-Validar URL antes do fetch.
+A Husky `pre-push` hook runs `npm run ci`. If any required stage fails, the push
+is blocked.
 
-Adicionar timeout.
+`git push --no-verify` bypasses the hook. **It is not part of the normal
+workflow of this project.** A push that skipped the pipeline has not been
+verified and must not be described as one that was.
 
-Limitar tamanho da resposta.
+---
 
-Não seguir redirects para destinos bloqueados.
+## Mutation testing
 
-Se a biblioteca escolhida não fizer isso automaticamente, implementar essa validação explicitamente.
-
-Criar testes específicos para SSRF.
-
-==================================================
-7. BENCHMARK
-==================================================
-
-O benchmark inicial deve possuir três categorias:
-
-EXTRACTION
-- extração de informação explícita.
-
-COMPREHENSION
-- entendimento de uma informação presente no texto.
-
-RELATION
-- relação entre duas informações presentes na página.
-
-Ter aproximadamente 5 perguntas por benchmark.
-
-Não criar um sistema complexo de geração automática de perguntas.
-
-A prioridade é:
-
-reprodutibilidade > complexidade.
-
-Quando não houver informação suficiente para avaliar uma pergunta:
-
-- marcar como not evaluable;
-- não inventar gabarito.
-
-==================================================
-8. SCORING
-==================================================
-
-Criar uma camada independente:
-
-evaluation/
-
-Ela deve receber:
-
-question
-expectedAnswer
-actualAnswer
-
-e produzir:
-
-CORRECT
-PARTIAL
-INCORRECT
-NOT_EVALUABLE
-
-Score:
-
-CORRECT = 1
-PARTIAL = 0.5
-INCORRECT = 0
-
-Não apresentar a pontuação como verdade absoluta.
-
-Se for necessário usar LLM-as-a-judge para perguntas abertas:
-
-- isolar essa funcionalidade;
-- documentar claramente;
-- permitir substituição do judge;
-- testar o comportamento com mocks.
-
-==================================================
-9. FRONTEND
-==================================================
-
-Criar uma página única.
-
-Título:
-
-AI Web Reading Benchmark
-
-Descrição:
-
-"Teste quão bem diferentes IAs conseguem ler e extrair informações de uma página web."
-
-Campo:
-
-URL
-
-Botão:
-
-Run Benchmark
-
-Durante execução:
-
-Fetching page...
-Extracting content...
-Running Gemini...
-Running ChatGPT...
-Running Claude...
-Evaluating answers...
-
-Resultado:
-
-- URL
-- título
-- quantidade de palavras
-- score por categoria
-- score geral
-- respostas individuais
-
-Tabela:
-
-Question | Gemini | ChatGPT | Claude
-
-Não esconder resultados.
-
-Não criar ranking editorial ou julgamento subjetivo dos modelos.
-
-==================================================
-10. ARQUITETURA DE TESTES
-==================================================
-
-TESTES NÃO SÃO UMA ETAPA FINAL.
-
-Toda funcionalidade implementada deve ser acompanhada por testes.
-
-A pirâmide mínima:
-
-                    SYSTEM / E2E
-                  SMOKE / REGRESSION
-                INTEGRATION TESTS
-              UNIT + MUTATION TESTS
-
-==================================================
-11. TESTE UNITÁRIO
-==================================================
-
-Usar:
-
-Vitest
-
-Cobrir principalmente:
-
-- URL validation
-- SSRF validation
-- content extraction
-- question generation
-- scoring
-- normalization
-- provider adapters
-- configuration
-- error handling
-
-Testes devem ser rápidos e determinísticos.
-
-Não utilizar APIs reais nos testes unitários.
-
-Mockar:
-
-- HTTP
-- AI providers
-- filesystem quando necessário
-- timers quando necessário.
-
-==================================================
-12. TESTE DE INTEGRAÇÃO
-==================================================
-
-Backend:
-
-usar Fastify inject.
-
-Testar:
-
-POST /api/benchmark
-
-com:
-
-- URL válida
-- URL inválida
-- página válida
-- página vazia
-- erro de scraping
-- provider indisponível
-- provider retornando erro
-- múltiplos providers
-- timeout
-
-As APIs externas devem ser mockadas.
-
-O teste deve verificar o fluxo:
-
-HTTP
-→ validation
-→ scraping
-→ benchmark
-→ providers
-→ evaluation
-→ response
-
-==================================================
-13. TESTE DE REGRESSÃO
-==================================================
-
-Criar fixtures determinísticas de páginas HTML.
-
-Exemplo:
-
-tests/fixtures/article.html
-
-O benchmark deve ser executado contra essas fixtures.
-
-Criar snapshots ou assertions explícitas para:
-
-- title
-- extracted content
-- questions
-- scoring
-- API response shape
-
-Sempre que um bug for corrigido:
-
-1. reproduzir o bug;
-2. adicionar teste;
-3. corrigir implementação;
-4. manter o teste como regressão permanente.
-
-Criar comando:
-
-npm run test:regression
-
-==================================================
-14. TESTE DE MUTAÇÃO
-==================================================
-
-Usar uma ferramenta adequada ao TypeScript, preferencialmente:
-
-StrykerJS
-
-Configurar mutation testing principalmente para:
-
-- validation
-- scoring
-- SSRF protection
-- benchmark orchestration
-
-Não tentar aplicar mutation testing indiscriminadamente a todo o projeto se isso inviabilizar o tempo de execução.
-
-Definir um mutation threshold razoável.
-
-Comando:
-
+```bash
 npm run test:mutation
+```
 
-O pipeline deve falhar se o mutation score ficar abaixo do threshold definido.
+StrykerJS, scoped to the modules where a silently wrong branch is dangerous:
+URL validation, SSRF protection, evaluation and scoring, secret redaction, and
+benchmark orchestration. Running it over jsdom parsing or the SDK adapters would
+multiply the runtime without testing anything the unit tests do not already pin
+down.
 
-Documentar o threshold no README.
+**Threshold: the pipeline fails below a mutation score of 80.**
 
-==================================================
-15. TESTE DE ESPECIFICAÇÃO
-==================================================
+Current score: **85.95%**
 
-Transformar os requisitos principais em testes executáveis.
+| File | Score |
+|---|---|
+| `config/secrets.ts` | 100% |
+| `evaluation/score.ts` | 100% |
+| `scraper/url-validation.ts` | 92.2% |
+| `scraper/ssrf.ts` | 85.3% |
+| `benchmark/run.ts` | 81.0% |
+| `evaluation/judge.ts` | 78.3% |
 
-Pode utilizar:
+Two documented exclusions, both marked in the source with the reason:
 
-Vitest + arquivos de specification tests
+- **the real-DNS adapter** in `ssrf.ts` — every test injects a resolver instead,
+  precisely so no test depends on live DNS;
+- **the two lookup tables** in `normalize.ts` — they are data, not logic;
+  mutating each entry produces hundreds of mutants killable only by asserting
+  every word individually.
 
-ou
+> Stryker runs through its **command runner**, not
+> `@stryker-mutator/vitest-runner`. That runner does not drive Vitest 5
+> correctly here — it executes 0 tests per mutant, so every mutant survives no
+> matter what the suite asserts, reporting a misleading ~22%. The command runner
+> activates mutants through `__STRYKER_ACTIVE_MUTANT__` and is
+> version-independent.
 
-Cucumber/Gherkin somente se isso não adicionar complexidade excessiva.
+---
 
-Preferência:
+## Security testing
 
-não adicionar Cucumber apenas por adicionar.
-
-Criar especificações para:
-
-- usuário informa URL válida;
-- sistema extrai página;
-- sistema executa benchmark;
-- três providers podem responder;
-- provider indisponível não quebra o benchmark;
-- resultado é apresentado.
-
-Comando:
-
-npm run test:spec
-
-==================================================
-16. TESTE DE SEGURANÇA
-==================================================
-
-Implementar pelo menos:
-
-- SSRF tests
-- invalid URL tests
-- oversized input tests
-- malformed HTML tests
-- malicious HTML tests
-- prompt injection awareness tests
-- secret exposure tests
-
-Testar que API keys:
-
-NUNCA aparecem:
-
-- no HTML
-- no JSON retornado
-- no código do frontend
-- nos logs.
-
-Usar ferramentas adequadas:
-
-- npm audit
-- Semgrep, se disponível de maneira simples
-- Gitleaks para secrets
-- testes de segurança próprios
-
-Não introduzir uma ferramenta pesada apenas para cumprir checklist.
-
-Comandos:
-
+```bash
 npm run test:security
 npm run security:audit
+```
 
-==================================================
-17. TESTE DE FUMAÇA
-==================================================
+### SSRF protection
 
-Criar smoke tests que respondam rapidamente:
+The caller controls the URL, so the fetcher treats it as hostile. Two gates run
+before any socket is opened, and **again on every redirect hop**:
 
-- backend inicia;
-- /api/health retorna 200;
-- frontend inicia;
-- frontend consegue carregar;
-- endpoint principal responde com fixture/mocks.
+1. **Structural validation** — `http:`/`https:` only (so `file:`, `javascript:`,
+   `data:`, `ftp:`, `ws:` and the rest are refused), no embedded credentials
+   (`https://evil.com@127.0.0.1/` reads one way to a human and another to the
+   fetcher), and a 2048-character cap.
+2. **Address classification** via `ipaddr.js` — only public unicast passes.
+   Loopback, `0.0.0.0`, private ranges, link-local including the cloud metadata
+   address `169.254.169.254`, CGNAT, multicast, broadcast, IPv6 unique-local and
+   IPv4-mapped IPv6 are all refused. Anything unrecognised fails closed.
 
-Comando:
+Redirects are followed manually with `redirect: 'manual'` precisely so no hop
+escapes the check. Fetching is bounded by timeout, redirect count, content type,
+and a byte budget enforced **while streaming**, not after buffering.
 
-npm run test:smoke
+`SCRAPER_ALLOWED_HOSTS` is the one way a private address becomes reachable. It
+is empty by default, matches exact hostnames only (never subdomains), and
+relaxes only the address check — scheme, credential and size gates still apply.
+Set it only to reach an internal host you own; every name listed becomes a host
+callers can reach through your service. The E2E suite uses it to read a local
+fixture server.
 
-Smoke tests devem ser executados antes dos testes mais demorados.
+### Secrets
 
-==================================================
-18. TESTE DE SISTEMA / E2E
-==================================================
+API keys must never leave the backend process. Tests assert this at every
+boundary a key could escape through: the HTTP response, error messages, the
+logs, and the source tree. Two specific defences:
 
-Usar:
+- **Provider errors never propagate the SDK's own message** — a vendor error can
+  quote the request it failed on. Only the error class name survives.
+- **The logger redacts configured credentials.** This was added because the
+  secret-exposure suite caught a real leak: pino serialised a raw error message,
+  so an SDK error quoting a key would have reached the logs.
 
-Playwright
+### Prompt injection
 
-Testar o sistema completo:
+A page can contain text telling a model to ignore its instructions, and the
+fixture `malicious.html` does exactly that. Stripping such text is not possible
+in general — instructions are just prose. The defences are that the shared
+prompt states the page is untrusted data and delimits it explicitly, and that
+**grading never trusts what a model says**: gold answers are read off the page,
+so no amount of injection can move a score.
 
-Browser
-→ Frontend
-→ Backend
-→ Mock AI providers
-→ Resultado
+### Malicious HTML
 
-Não usar APIs reais no CI.
+jsdom is constructed without `runScripts`, so nothing in a fetched page ever
+executes, and its virtual console is silenced so a malformed page cannot spam
+the logs.
 
-Cenário principal:
+### Dependency and secret scanning
 
-1. abrir aplicação;
-2. inserir URL;
-3. executar benchmark;
-4. aguardar resultado;
-5. verificar Gemini;
-6. verificar ChatGPT;
-7. verificar Claude;
-8. verificar scores.
+`npm run security:audit` runs `npm audit` (failing on high/critical) and
+Gitleaks. **When Gitleaks is not installed it reports `NOT RUN — <reason>`
+rather than claiming a scan that did not happen.** Install it from
+<https://github.com/gitleaks/gitleaks#installing>.
 
-Também testar:
+---
 
-- URL inválida;
-- erro do backend;
-- provider indisponível.
+## SonarQube
 
-Comando:
+Configuration lives in `sonar-project.properties`, fed by the Vitest coverage
+report.
 
-npm run test:e2e
-
-==================================================
-19. LINT
-==================================================
-
-Usar ESLint.
-
-Configurar para TypeScript e Next.js.
-
-Comando:
-
-npm run lint
-
-Não aceitar:
-
-- unused variables
-- imports inválidos
-- erros de React
-- problemas TypeScript conhecidos.
-
-==================================================
-20. FORMATAÇÃO
-==================================================
-
-Usar Prettier.
-
-Comando:
-
-npm run format:check
-
-==================================================
-21. TIPAGEM
-==================================================
-
-TypeScript strict.
-
-Executar:
-
-npm run typecheck
-
-Não aceitar erros de TypeScript.
-
-Evitar:
-
-any
-
-quando houver alternativa razoável.
-
-==================================================
-22. DEAD CODE
-==================================================
-
-Adicionar ferramenta adequada para detectar código morto.
-
-Preferência:
-
-Knip
-
-Executar:
-
-npm run dead-code
-
-O pipeline deve falhar para código morto claramente detectado.
-
-Se uma exceção legítima existir, documentá-la explicitamente.
-
-Não adicionar código apenas para satisfazer a ferramenta.
-
-==================================================
-23. SONARQUBE
-==================================================
-
-Integrar SonarQube ao processo local.
-
-O projeto deve possuir:
-
-sonar-project.properties
-
-Configurar análise para:
-
-- bugs
-- vulnerabilities
-- code smells
-- duplication
-- coverage
-- maintainability
-- reliability
-- security
-
-Usar cobertura de testes gerada pelo Vitest.
-
-Metas mínimas:
-
-- Coverage >= 80%
-- Duplication <= 3%
-- Cognitive complexity <= 15
-- Cyclomatic complexity <= 10
-- Technical debt <= 5%
-
-Não criar complexidade artificial apenas para satisfazer métricas.
-
-O código deve ser refatorado quando necessário.
-
-Se SonarQube local estiver disponível:
-
+```bash
+npm run coverage
 npm run quality:sonar
+```
 
-Se não estiver disponível, o script deve explicar claramente como iniciar/configurar o SonarQube.
+When no server is reachable the script prints `NOT RUN — <reason>` plus setup
+instructions and exits 0. **It never reports an analysis that did not run.**
 
-Não fingir que uma análise SonarQube foi executada quando o servidor não estiver disponível.
-
-==================================================
-24. CI/CD LOCAL
-==================================================
-
-ANTES DE CADA PUSH, executar obrigatoriamente um pipeline local.
-
-Criar:
-
-npm run ci
-
-Esse comando deve executar, na ordem apropriada:
-
-1. clean
-2. install/verify dependencies
-3. typecheck
-4. lint
-5. format check
-6. dead-code
-7. unit tests
-8. integration tests
-9. regression tests
-10. specification tests
-11. security tests
-12. smoke tests
-13. mutation tests
-14. build
-15. system/e2e tests
-16. coverage verification
-17. SonarQube analysis quando disponível
-
-O pipeline deve:
-
-- parar quando uma etapa obrigatória falhar;
-- retornar exit code != 0;
-- nunca mascarar erros.
-
-Criar também comandos individuais:
-
-npm run test:unit
-npm run test:integration
-npm run test:regression
-npm run test:mutation
-npm run test:spec
-npm run test:security
-npm run test:smoke
-npm run test:e2e
-npm run typecheck
-npm run lint
-npm run dead-code
+```bash
+docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+export SONAR_HOST_URL=http://localhost:9000
+export SONAR_TOKEN=<token from the UI>
 npm run quality:sonar
-npm run ci
-
-==================================================
-25. PRE-PUSH
-==================================================
-
-Configurar um git pre-push hook.
-
-Preferencialmente usar:
-
-Husky
-
-O hook deve executar:
-
-npm run ci
-
-Se qualquer etapa falhar:
-
-git push deve ser bloqueado.
-
-IMPORTANTE:
-
-Não permitir bypass silencioso.
-
-Documentar que:
-
-git push --no-verify
-
-não faz parte do fluxo normal do projeto.
-
-==================================================
-26. TESTES COM APIs EXTERNAS
-==================================================
-
-NUNCA executar testes normais contra:
-
-- OpenAI real
-- Gemini real
-- Anthropic real
-
-Isso causaria:
-
-- custos;
-- instabilidade;
-- testes não determinísticos.
-
-Criar mock providers.
-
-Opcionalmente criar:
-
-npm run test:live
-
-para um teste manual contra APIs reais.
-
-Esse comando:
-
-- nunca deve ser executado pelo CI normal;
-- deve exigir explicitamente environment variables;
-- deve deixar claro que pode gerar custos.
-
-==================================================
-27. DEPLOY
-==================================================
-
-Backend:
-
-Railway.
-
-Frontend:
-
-Vercel.
-
-Preparar:
-
-backend/.env.example
-frontend/.env.example
-
-Backend:
-
-PORT
-FRONTEND_URL
-GEMINI_API_KEY
-OPENAI_API_KEY
-ANTHROPIC_API_KEY
-
-Frontend:
-
-NEXT_PUBLIC_API_URL
-
-Nunca colocar secrets em NEXT_PUBLIC_*.
-
-==================================================
-28. BUILD
-==================================================
-
-Antes de considerar o projeto pronto:
-
-npm run build
-
-deve funcionar.
-
-Verificar:
-
-- frontend build
-- backend build
-
-==================================================
-29. GIT
-==================================================
-
-Criar commits pequenos e semanticamente organizados quando apropriado.
-
-Exemplo:
-
-feat: add web content extraction
-feat: add ai providers
-test: add benchmark integration tests
-test: add regression fixtures
-test: add mutation testing
-chore: configure quality gates
-
-Não fazer um único commit gigante se isso puder ser evitado.
-
-==================================================
-30. DOCUMENTAÇÃO
-==================================================
-
-README.md deve conter:
-
-- objetivo
-- arquitetura
-- stack
-- instalação
-- environment variables
-- execução local
-- testes
-- CI local
-- pre-push
-- SonarQube
-- mutation testing
-- security testing
-- deploy Railway
-- deploy Vercel
-- limitações
-
-Adicionar tabela:
-
-| Comando | Função |
-|---|---|
-| npm run dev | desenvolvimento |
-| npm run test:unit | testes unitários |
-| npm run test:integration | integração |
-| npm run test:regression | regressão |
-| npm run test:mutation | mutação |
-| npm run test:spec | especificação |
-| npm run test:security | segurança |
-| npm run test:smoke | fumaça |
-| npm run test:e2e | sistema |
-| npm run typecheck | tipagem |
-| npm run lint | lint |
-| npm run dead-code | dead code |
-| npm run quality:sonar | SonarQube |
-| npm run ci | pipeline completo |
-
-==================================================
-31. ESTRATÉGIA DE IMPLEMENTAÇÃO
-==================================================
-
-Trabalhe nesta ordem:
-
-FASE 1 — Bootstrap
-
-- estrutura monorepo
-- package.json
-- TypeScript
-- lint
-- prettier
-- testing
-- scripts
-
-FASE 2 — Backend mínimo
-
-- Fastify
-- health
-- validation
-- scraper
-- benchmark domain
-
-FASE 3 — Providers
-
-- Gemini
-- OpenAI
-- Claude
-- mock providers
-
-FASE 4 — Evaluation
-
-- questions
-- scoring
-- result model
-
-FASE 5 — Tests
-
-- unit
-- integration
-- regression
-- specification
-- security
-
-FASE 6 — Quality
-
-- mutation
-- dead-code
-- coverage
-- SonarQube
-- pre-push
-
-FASE 7 — Frontend
-
-- UI
-- API integration
-- loading
-- errors
-- results
-
-FASE 8 — System tests
-
-- Playwright
-- smoke
-- full E2E
-
-FASE 9 — Production
-
-- production build
-- Railway configuration
-- Vercel configuration
-- README
-
-==================================================
-32. PRINCÍPIO FUNDAMENTAL
-==================================================
-
-NÃO escreva código primeiro e testes depois.
-
-Para cada componente importante:
-
-1. definir comportamento;
-2. escrever teste;
-3. implementar;
-4. executar teste;
-5. refatorar;
-6. executar qualidade.
-
-O código somente deve ser considerado terminado quando os testes correspondentes existirem e passarem.
-
-==================================================
-33. REQUISITO FINAL
-==================================================
-
-Antes de terminar, execute:
-
-npm run ci
-
-Corrija TODOS os problemas encontrados.
-
-Depois execute novamente:
-
-npm run ci
-
-Somente considere a implementação concluída quando o pipeline estiver verde.
-
-No final, apresente:
-
-1. arquitetura final;
-2. arquivos principais;
-3. ferramentas escolhidas e justificativa;
-4. quantidade de testes por categoria;
-5. coverage;
-6. mutation score;
-7. resultado do lint;
-8. resultado do typecheck;
-9. resultado do dead-code;
-10. resultado do SonarQube;
-11. resultado do build;
-12. resultado do E2E;
-13. limitações;
-14. instruções de deploy Railway;
-15. instruções de deploy Vercel.
-
-NUNCA invente resultados de testes.
-
-Se uma ferramenta não pôde ser executada, informe:
-
-NOT RUN — motivo
-
-em vez de afirmar que passou.
+```
+
+Goals: coverage ≥ 80%, duplication ≤ 3%, cognitive complexity ≤ 15, cyclomatic
+complexity ≤ 10, technical debt ≤ 5%.
+
+Current coverage: **97.6% overall** (backend 97.9%, frontend 94.9%), verified by
+`npm run coverage:verify`, which fails below 80%.
+
+---
+
+## Deploying the backend to Railway
+
+`railway.json` is committed, so Railway picks up the build, start command and
+health check automatically.
+
+1. Create a project from this repository:
+   ```bash
+   railway login
+   railway init
+   railway up
+   ```
+   Or, in the dashboard: **New Project → Deploy from GitHub repo**, and leave
+   the root directory as the repository root (the build command targets the
+   backend workspace).
+
+2. Set the variables under **Variables**:
+   ```
+   NODE_ENV=production
+   FRONTEND_URL=https://<your-app>.vercel.app
+   GEMINI_API_KEY=…
+   OPENAI_API_KEY=…
+   ANTHROPIC_API_KEY=…
+   ```
+   `PORT` is injected by Railway — do not set it. Omit any key you do not have;
+   that provider is simply reported unavailable.
+
+3. Generate a public domain under **Settings → Networking**.
+
+4. Verify: `curl https://<your-service>.up.railway.app/api/health`
+
+`FRONTEND_URL` is the CORS origin. If it does not match the deployed frontend
+exactly, the browser will block every request.
+
+---
+
+## Deploying the frontend to Vercel
+
+`vercel.json` is committed with the monorepo build wiring.
+
+1. Import the repository at <https://vercel.com/new>, keeping the root directory
+   as the repository root. Or:
+   ```bash
+   vercel login
+   vercel link
+   vercel --prod
+   ```
+
+2. Set the environment variable **before the first build**:
+   ```
+   NEXT_PUBLIC_API_URL=https://<your-service>.up.railway.app
+   ```
+
+3. Deploy, then set `FRONTEND_URL` on Railway to the resulting Vercel URL and
+   redeploy the backend so CORS matches.
+
+> `NEXT_PUBLIC_*` is inlined at build time. Changing `NEXT_PUBLIC_API_URL` has
+> no effect until you **redeploy**, not merely restart.
+
+---
+
+## Limitations
+
+Worth knowing before reading anything into a score:
+
+- **The benchmark is small.** Five questions on one page. It measures whether a
+  model reports facts that are on the page — not reasoning, synthesis or
+  judgement.
+- **The default models are not tier-matched**, so the default line-up compares a
+  flagship against mid-tier models. Pin comparable models before drawing
+  conclusions.
+- **The question templates are shallow by design.** Title, byline, first
+  heading, a numeric cloze and a term-to-section link. They are reproducible,
+  not deep. A model can score well here and still read badly.
+- **Grading is string comparison.** It handles case, accents, punctuation,
+  digit grouping and simple number words, but a correct answer phrased very
+  differently from the page can be scored `INCORRECT`. Every expected answer is
+  shown in the UI so you can check.
+- **`RELATION` questions depend on the page having headings.** Many pages do
+  not, and the question is then `NOT_EVALUABLE`.
+- **Extraction is Readability's opinion** of what the main content is. It is
+  good, not infallible, and the `strategy` field reports when the fallback ran.
+- **Only the first `MAX_CONTENT_CHARS` of a long page reach the models.** The
+  result flags `truncated`, but a long page is effectively a test of its
+  opening.
+- **JavaScript-rendered pages will look empty.** The scraper fetches HTML; it
+  does not run a browser.
+- **DNS rebinding is not fully closed.** Addresses are validated before the
+  fetch, but a hostile resolver could return a different address between the
+  check and the connection. Closing this needs the connection pinned to the
+  validated IP with a custom dispatcher.
+- **Prompt injection is mitigated, not solved.** See
+  [Prompt injection](#prompt-injection).
+- **Provider latency and rate limits are yours to manage.** Each call is capped
+  by `PROVIDER_TIMEOUT_MS`; a timeout is recorded as a provider error and
+  excluded from the score.
+- **Two moderate advisories remain** in a transitive development dependency
+  (`qs`, via Stryker's `typed-rest-client`). Production dependencies report zero
+  vulnerabilities at any severity.
+- **Results are not stored.** Every run is fresh, and nothing is persisted or
+  compared over time.
+
+---
+
+## License
+
+MIT
