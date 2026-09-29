@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Release gate: every push runs the full local pipeline.
+#
+# `git push --no-verify` skips this hook. It is NOT part of the normal
+# workflow of this project. A push that skipped the pipeline has not been
+# verified, and must never be described as one that was.
+#
+# CI_SKIP=<stage,...> exists for debugging one stage in isolation. npm run ci
+# prints a warning when it is set, and such a run is likewise not green.
+
+echo "pre-push: running the full local pipeline (npm run ci)"
+echo "pre-push: mutation tests and Playwright make this take several minutes."
+echo "pre-push: it is the project's release gate — let it finish."
+
+npm run ci

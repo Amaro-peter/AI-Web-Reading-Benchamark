@@ -8,6 +8,8 @@ interface ScrapeOptions {
   maxBytes: number;
   maxRedirects: number;
   maxChars: number;
+  /** Hostnames exempted from the private-address guard. Empty by default. */
+  allowedHosts: readonly string[];
 }
 
 export interface ScrapedPage extends ExtractedPage {
@@ -24,6 +26,7 @@ export function scrapeOptionsFromEnv(env: Env): ScrapeOptions {
     maxBytes: env.SCRAPER_MAX_BYTES,
     maxRedirects: DEFAULT_MAX_REDIRECTS,
     maxChars: env.MAX_CONTENT_CHARS,
+    allowedHosts: env.SCRAPER_ALLOWED_HOSTS,
   };
 }
 
@@ -47,7 +50,7 @@ export async function scrapePage(
       maxBytes: options.maxBytes,
       maxRedirects: options.maxRedirects,
     },
-    deps,
+    { allowedHosts: options.allowedHosts, ...deps },
   );
 
   const extracted = extractContent(fetched.html, fetched.finalUrl, {

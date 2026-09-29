@@ -63,9 +63,13 @@ export default function HomePage() {
         {state.phase === 'failed' && (
           <div
             role="alert"
+            aria-labelledby="benchmark-error-title"
             className="mt-8 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950/40"
           >
-            <p className="font-semibold text-rose-900 dark:text-rose-200">
+            <p
+              id="benchmark-error-title"
+              className="font-semibold text-rose-900 dark:text-rose-200"
+            >
               The benchmark could not run
             </p>
             <p className="mt-1 text-rose-800 dark:text-rose-300">{state.message}</p>

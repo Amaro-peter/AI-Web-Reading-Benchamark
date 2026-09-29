@@ -20,6 +20,8 @@ interface FetchPageOptions {
 export interface FetchPageDeps {
   fetchImpl?: typeof fetch;
   lookup?: LookupFn;
+  /** Hostnames exempted from the private-address guard. Empty by default. */
+  allowedHosts?: readonly string[];
 }
 
 interface FetchedPage {
@@ -47,13 +49,14 @@ export async function fetchPage(
 ): Promise<FetchedPage> {
   const doFetch = deps.fetchImpl ?? fetch;
   const lookup = deps.lookup;
+  const allowedHosts = deps.allowedHosts ?? [];
   const deadline = Date.now() + options.timeoutMs;
 
   let current = target;
   let hops = 0;
 
   for (;;) {
-    await assertSafeUrl(current, lookup);
+    await assertSafeUrl(current, lookup, allowedHosts);
 
     const response = await performRequest(doFetch, current, deadline);
 

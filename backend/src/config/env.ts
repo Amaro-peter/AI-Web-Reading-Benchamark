@@ -49,6 +49,27 @@ export const EnvSchema = z.object({
   MAX_CONTENT_CHARS: optionalNumber(12_000),
   /** Hard ceiling on how long a single provider answer may take. */
   PROVIDER_TIMEOUT_MS: optionalNumber(30_000),
+
+  /**
+   * Comma-separated hostnames exempted from the private-address guard.
+   *
+   * Empty by default, which is the only safe default: with nothing listed,
+   * no private or loopback address can be reached at all. Set it only to
+   * point this service at an internal host you own — and note that every
+   * name listed here is a host a caller can then reach through the service.
+   * The scheme, credential and size checks still apply to them.
+   *
+   * The E2E suite uses it to scrape a local fixture server.
+   */
+  SCRAPER_ALLOWED_HOSTS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((host) => host.trim().toLowerCase())
+        .filter((host) => host.length > 0),
+    ),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

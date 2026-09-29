@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { loadEnv } from '../../src/config/env.js';
 import { ScrapeError } from '../../src/domain/errors.js';
 import { parseTargetUrl } from '../../src/scraper/url-validation.js';
 import {
@@ -6,6 +7,7 @@ import {
   assertResolvesToPublicAddress,
   isBlockedHostname,
   isPublicIpAddress,
+  type LookupFn,
 } from '../../src/scraper/ssrf.js';
 
 function expectScrapeError(fn: () => unknown, code: string) {
@@ -268,5 +270,55 @@ describe('DNS resolution guard', () => {
     await expect(assertResolvesToPublicAddress('[::1]', lookup)).rejects.toMatchObject({
       code: 'BLOCKED_HOST',
     });
+  });
+});
+
+describe('the host allowlist is an explicit, narrow opt-in', () => {
+  const privateLookup: LookupFn = async () => [{ address: '127.0.0.1', family: 4 }];
+
+  it('is empty by default, so nothing private is reachable', () => {
+    expect(loadEnv({}).SCRAPER_ALLOWED_HOSTS).toEqual([]);
+  });
+
+  it('still blocks a private host when the allowlist is empty', async () => {
+    await expect(
+      assertResolvesToPublicAddress('internal.example', privateLookup, []),
+    ).rejects.toMatchObject({ code: 'BLOCKED_HOST' });
+  });
+
+  it('permits only the exact hostnames listed', async () => {
+    await expect(
+      assertResolvesToPublicAddress('fixtures.internal', privateLookup, ['fixtures.internal']),
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not extend the exemption to subdomains of a listed host', async () => {
+    await expect(
+      assertResolvesToPublicAddress('evil.fixtures.internal', privateLookup, ['fixtures.internal']),
+    ).rejects.toMatchObject({ code: 'BLOCKED_HOST' });
+  });
+
+  it('does not extend the exemption to other private hosts', async () => {
+    await expect(
+      assertResolvesToPublicAddress('127.0.0.1', privateLookup, ['fixtures.internal']),
+    ).rejects.toMatchObject({ code: 'BLOCKED_HOST' });
+  });
+
+  it('can exempt a loopback literal when that is what was configured', async () => {
+    await expect(
+      assertResolvesToPublicAddress('127.0.0.1', privateLookup, ['127.0.0.1']),
+    ).resolves.toBeUndefined();
+  });
+
+  it('parses a comma-separated list, trimming and lowercasing', () => {
+    expect(
+      loadEnv({ SCRAPER_ALLOWED_HOSTS: ' Fixtures.Internal , 127.0.0.1 ,, ' })
+        .SCRAPER_ALLOWED_HOSTS,
+    ).toEqual(['fixtures.internal', '127.0.0.1']);
+  });
+
+  it('never lets an allowlisted host through a non-HTTP scheme', () => {
+    // The allowlist only relaxes the address check; the scheme gate is earlier.
+    expect(() => parseTargetUrl('file://fixtures.internal/etc/passwd')).toThrow();
   });
 });

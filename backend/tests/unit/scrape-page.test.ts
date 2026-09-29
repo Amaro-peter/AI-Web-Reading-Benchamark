@@ -93,6 +93,16 @@ describe('scrapeOptionsFromEnv', () => {
       maxBytes: 4321,
       maxChars: 999,
       maxRedirects: 5,
+      allowedHosts: [],
     });
+  });
+
+  it('carries the configured host allowlist through to the fetcher', () => {
+    const env = loadEnv({ SCRAPER_ALLOWED_HOSTS: 'fixtures.internal' });
+    expect(scrapeOptionsFromEnv(env).allowedHosts).toEqual(['fixtures.internal']);
+  });
+
+  it('defaults the host allowlist to empty', () => {
+    expect(scrapeOptionsFromEnv(loadEnv({})).allowedHosts).toEqual([]);
   });
 });

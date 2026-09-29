@@ -136,7 +136,7 @@ describe('when the run fails', () => {
     await userEvent.type(screen.getByLabelText('Page URL'), 'https://intranet.example/');
     await userEvent.click(screen.getByRole('button', { name: 'Run Benchmark' }));
 
-    const alert = await screen.findByRole('alert');
+    const alert = await screen.findByRole('alert', { name: 'The benchmark could not run' });
     expect(alert).toHaveTextContent('That host is not allowed.');
     expect(alert).toHaveTextContent('BLOCKED_HOST');
     expect(screen.getByRole('button', { name: 'Run Benchmark' })).toBeEnabled();
@@ -149,9 +149,9 @@ describe('when the run fails', () => {
     await userEvent.type(screen.getByLabelText('Page URL'), VALID_URL);
     await userEvent.click(screen.getByRole('button', { name: 'Run Benchmark' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /Could not reach the benchmark service/,
-    );
+    expect(
+      await screen.findByRole('alert', { name: 'The benchmark could not run' }),
+    ).toHaveTextContent(/Could not reach the benchmark service/);
   });
 
   it('reports a malformed response rather than rendering nothing', async () => {
@@ -164,7 +164,9 @@ describe('when the run fails', () => {
     await userEvent.type(screen.getByLabelText('Page URL'), VALID_URL);
     await userEvent.click(screen.getByRole('button', { name: 'Run Benchmark' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/malformed response/);
+    expect(
+      await screen.findByRole('alert', { name: 'The benchmark could not run' }),
+    ).toHaveTextContent(/malformed response/);
   });
 
   it('does not submit an empty URL to the backend', async () => {

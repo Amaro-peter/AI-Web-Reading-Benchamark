@@ -7,6 +7,7 @@
  * without failing the build, but they never report success they did not earn.
  */
 import { spawnSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -51,7 +52,7 @@ const line = (char = '-') => char.repeat(72);
 const results = [];
 let failed = null;
 
-const started = Date.now();
+const started = performance.now();
 
 for (const [index, stage] of STAGES.entries()) {
   const label = `${String(index + 1).padStart(2, '0')}/${STAGES.length} ${stage.name}`;
@@ -65,9 +66,9 @@ for (const [index, stage] of STAGES.entries()) {
   console.log(`\n${line('=')}\n== ${label}\n${line('=')}`);
 
   const [cmd, args] = stage.command ?? ['npm', ['run', stage.script]];
-  const stageStart = Date.now();
+  const stageStart = performance.now();
   const proc = spawnSync(cmd, args, { cwd: root, stdio: 'inherit', shell: false });
-  const ms = Date.now() - stageStart;
+  const ms = performance.now() - stageStart;
 
   const ok = proc.status === 0;
   results.push({
@@ -90,7 +91,7 @@ const notRun = STAGES.length - results.length;
 if (notRun > 0) {
   console.log(`\n${notRun} later stage(s) NOT RUN — pipeline stopped at "${failed}".`);
 }
-console.log(`\ntotal ${((Date.now() - started) / 1000).toFixed(1)}s`);
+console.log(`\ntotal ${((performance.now() - started) / 1000).toFixed(1)}s`);
 
 if (failed) {
   console.error(`\nCI FAILED at stage: ${failed}`);

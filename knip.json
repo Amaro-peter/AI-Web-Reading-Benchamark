@@ -2,8 +2,13 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.mjs", "playwright.config.ts", "e2e/**/*.spec.ts"],
-      "project": ["scripts/**/*.mjs", "e2e/**/*.ts"]
+      "entry": [
+        "scripts/*.mjs",
+        "playwright.config.ts",
+        "e2e/**/*.spec.ts",
+        "e2e/fixture-server.mjs"
+      ],
+      "project": ["scripts/**/*.mjs", "e2e/**/*.{ts,mjs}"]
     },
     "backend": {
       "entry": ["src/server.ts", "tests/**/*.test.ts"],

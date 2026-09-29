@@ -123,8 +123,16 @@ const defaultLookup: LookupFn = async (hostname) => {
 export async function assertResolvesToPublicAddress(
   hostname: string,
   lookup: LookupFn = defaultLookup,
+  allowedHosts: readonly string[] = [],
 ): Promise<void> {
   const host = normalizeHostname(hostname);
+
+  // An operator can exempt specific hostnames. This is the one way a private
+  // address becomes reachable, it is off unless configured, and it never
+  // widens beyond the exact names listed.
+  if (allowedHosts.includes(host)) {
+    return;
+  }
 
   if (isBlockedHostname(host)) {
     throw new ScrapeError('BLOCKED_HOST', 'That host is not allowed.');
@@ -154,6 +162,10 @@ export async function assertResolvesToPublicAddress(
 // Stryker restore all
 
 /** Full pre-flight guard for a parsed URL: hostname denylist plus DNS check. */
-export async function assertSafeUrl(url: URL, lookup: LookupFn = defaultLookup): Promise<void> {
-  await assertResolvesToPublicAddress(url.hostname, lookup);
+export async function assertSafeUrl(
+  url: URL,
+  lookup: LookupFn = defaultLookup,
+  allowedHosts: readonly string[] = [],
+): Promise<void> {
+  await assertResolvesToPublicAddress(url.hostname, lookup, allowedHosts);
 }
