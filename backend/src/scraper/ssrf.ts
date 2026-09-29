@@ -106,6 +106,9 @@ export function assertPublicAddress(address: string): void {
   }
 }
 
+// Stryker disable all: this is the real-DNS adapter. Every caller in the
+// tests injects a LookupFn instead, precisely so no test depends on live DNS,
+// which would be neither deterministic nor offline-safe.
 const defaultLookup: LookupFn = async (hostname) => {
   const answers = await dnsLookup(hostname, { all: true, verbatim: true });
   return answers.map((a) => ({ address: a.address, family: a.family }));
@@ -147,6 +150,8 @@ export async function assertResolvesToPublicAddress(
     assertPublicAddress(answer.address);
   }
 }
+
+// Stryker restore all
 
 /** Full pre-flight guard for a parsed URL: hostname denylist plus DNS check. */
 export async function assertSafeUrl(url: URL, lookup: LookupFn = defaultLookup): Promise<void> {

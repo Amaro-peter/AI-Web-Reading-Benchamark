@@ -132,6 +132,71 @@ describe('blocked IP addresses', () => {
   });
 });
 
+describe('hostname normalisation', () => {
+  it('treats an empty hostname as blocked', () => {
+    expect(isBlockedHostname('')).toBe(true);
+    expect(isBlockedHostname('   ')).toBe(true);
+  });
+
+  it('ignores case and a trailing root dot', () => {
+    expect(isBlockedHostname('LocalHost.')).toBe(true);
+    expect(isBlockedHostname('Service.INTERNAL')).toBe(true);
+    expect(isBlockedHostname('api.localhost..')).toBe(true);
+  });
+
+  it('strips IPv6 brackets before classifying the address', () => {
+    expect(isPublicIpAddress('[::1]')).toBe(false);
+    expect(isPublicIpAddress('[2606:2800:220:1:248:1893:25c8:1946]')).toBe(true);
+  });
+
+  it('allows a bracketed public IPv6 literal without consulting DNS', async () => {
+    let called = false;
+    const lookup = async () => {
+      called = true;
+      return [{ address: '10.0.0.1', family: 4 }];
+    };
+    await expect(
+      assertResolvesToPublicAddress('[2606:2800:220:1:248:1893:25c8:1946]', lookup),
+    ).resolves.toBeUndefined();
+    expect(called).toBe(false);
+  });
+
+  it('does not strip a single stray bracket', () => {
+    expect(isPublicIpAddress('[::1')).toBe(false);
+    expect(isPublicIpAddress('::1]')).toBe(false);
+  });
+});
+
+describe('the refusal message says nothing about our network', () => {
+  it('names neither the address nor the reason it is blocked', () => {
+    try {
+      assertPublicAddress('10.1.2.3');
+      throw new Error('expected a refusal');
+    } catch (error) {
+      const message = (error as ScrapeError).message;
+      expect(message).toBe('That URL points at an address this service cannot fetch.');
+      expect(message).not.toContain('10.1.2.3');
+      expect(message).not.toMatch(/private|internal|loopback/i);
+    }
+  });
+
+  it('uses a distinct message when the hostname itself is denied', async () => {
+    await expect(assertResolvesToPublicAddress('localhost', async () => [])).rejects.toMatchObject({
+      code: 'BLOCKED_HOST',
+      message: 'That host is not allowed.',
+    });
+  });
+
+  it('uses a distinct message when resolution fails', async () => {
+    await expect(
+      assertResolvesToPublicAddress('nope.invalid', async () => []),
+    ).rejects.toMatchObject({
+      code: 'DNS_FAILURE',
+      message: 'That host could not be resolved.',
+    });
+  });
+});
+
 describe('DNS resolution guard', () => {
   it('rejects a public-looking hostname that resolves to a private address', async () => {
     const lookup = async () => [{ address: '10.1.2.3', family: 4 }];

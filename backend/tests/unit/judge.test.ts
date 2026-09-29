@@ -97,6 +97,69 @@ describe('evaluateAnswer', () => {
   });
 });
 
+describe('the partial-credit boundary', () => {
+  it('awards PARTIAL at exactly the threshold', () => {
+    // two of four expected tokens = 0.50
+    expect(verdictFor('alpha beta gamma delta', 'alpha beta')).toBe('PARTIAL');
+  });
+
+  it('refuses PARTIAL just below the threshold', () => {
+    // two of five expected tokens = 0.40
+    expect(verdictFor('alpha beta gamma delta epsilon', 'alpha beta')).toBe('INCORRECT');
+  });
+
+  it('treats a single-token expectation as all or nothing', () => {
+    expect(verdictFor('alpha', 'alpha')).toBe('CORRECT');
+    expect(verdictFor('alpha', 'beta')).toBe('INCORRECT');
+  });
+});
+
+describe('numbers must match exactly for partial credit', () => {
+  it('refuses partial credit when the number is wrong', () => {
+    expect(verdictFor('Route 28 Alfama line', 'Route 15 Alfama line')).toBe('INCORRECT');
+  });
+
+  it('refuses partial credit when the number is missing entirely', () => {
+    expect(verdictFor('Route 28 Alfama line', 'the Alfama line route')).toBe('INCORRECT');
+  });
+
+  it('allows partial credit when every number matches', () => {
+    expect(verdictFor('Route 28 Alfama district line', 'Route 28 district')).toBe('PARTIAL');
+  });
+
+  it('allows partial credit when the expectation has no numbers at all', () => {
+    expect(verdictFor('Alfama district tram line', 'Alfama district')).toBe('PARTIAL');
+  });
+
+  it('matches a number written as a word against its digits', () => {
+    expect(verdictFor('fifty eight trams', '58 trams')).toBe('CORRECT');
+  });
+
+  it('does not treat a longer number as a match', () => {
+    expect(verdictFor('year 1914 opening', 'year 19141 opening')).toBe('INCORRECT');
+  });
+});
+
+describe('evaluateAnswer keeps the strictly better verdict', () => {
+  it('does not downgrade when a later candidate scores lower', () => {
+    const q = question({ expectedAnswer: 'Route 28', acceptableAnswers: ['completely different'] });
+    expect(evaluateAnswer(heuristicJudge, q, 'Route 28')).toBe('CORRECT');
+  });
+
+  it('upgrades when a later candidate scores higher', () => {
+    const q = question({ expectedAnswer: 'completely different', acceptableAnswers: ['Route 28'] });
+    expect(evaluateAnswer(heuristicJudge, q, 'Route 28')).toBe('CORRECT');
+  });
+
+  it('keeps PARTIAL over INCORRECT across candidates', () => {
+    const q = question({
+      expectedAnswer: 'nothing alike whatsoever',
+      acceptableAnswers: ['alpha beta gamma delta'],
+    });
+    expect(evaluateAnswer(heuristicJudge, q, 'alpha beta')).toBe('PARTIAL');
+  });
+});
+
 describe('the judge is replaceable', () => {
   it('scoring calls whatever judge it is given', () => {
     const alwaysCorrect = { name: 'stub', evaluate: () => 'CORRECT' as const };

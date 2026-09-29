@@ -209,6 +209,112 @@ describe('timeouts', () => {
   });
 });
 
+describe('timing is measured with the injected clock', () => {
+  /** A clock that advances a fixed amount on every read. */
+  function steppingClock(stepMs: number) {
+    let value = 1_000;
+    return () => {
+      const current = value;
+      value += stepMs;
+      return current;
+    };
+  }
+
+  it('reports a non-negative duration for the run and for each answer', async () => {
+    const run = await runBenchmark({
+      ...options,
+      page,
+      now: steppingClock(10),
+      providers: [available('gemini', new MockProvider({ name: 'gemini', model: 'm' }))],
+    });
+
+    expect(run.durationMs).toBeGreaterThan(0);
+    expect(run.results.gemini.durationMs).toBeGreaterThan(0);
+    for (const answer of run.results.gemini.answers) {
+      expect(answer.durationMs).toBeGreaterThan(0);
+    }
+  });
+
+  it('stamps generatedAt from the clock, not from the wall time', async () => {
+    const fixed = Date.UTC(2024, 2, 12, 8, 0, 0);
+    const run = await runBenchmark({
+      ...options,
+      page,
+      now: () => fixed,
+      providers: [available('gemini', new MockProvider({ name: 'gemini', model: 'm' }))],
+    });
+
+    expect(run.generatedAt).toBe('2024-03-12T08:00:00.000Z');
+    expect(run.durationMs).toBe(0);
+  });
+
+  it('gives an unavailable provider a zero duration', async () => {
+    const run = await runBenchmark({
+      ...options,
+      page,
+      now: steppingClock(10),
+      providers: [unavailable('openai', 'no key')],
+    });
+
+    expect(run.results.openai.durationMs).toBe(0);
+  });
+});
+
+describe('an errored provider explains itself', () => {
+  it('reports the first failure as the reason', async () => {
+    const run = await runBenchmark({
+      ...options,
+      page,
+      providers: [
+        available(
+          'openai',
+          new FailingProvider(
+            'openai',
+            'broken',
+            new ProviderError('PROVIDER_REFUSED', 'openai declined to answer.'),
+          ),
+        ),
+      ],
+    });
+
+    expect(run.results.openai.status).toBe('error');
+    expect(run.results.openai.reason).toBe('openai declined to answer.');
+  });
+
+  it('leaves the reason null while the provider is still answering some questions', async () => {
+    let calls = 0;
+    const flaky: AIProvider = {
+      name: 'gemini',
+      model: 'flaky',
+      answer: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return 'an answer';
+        }
+        throw new ProviderError('PROVIDER_ERROR', 'gemini request failed.');
+      },
+    };
+
+    const run = await runBenchmark({ ...options, page, providers: [available('gemini', flaky)] });
+    expect(run.results.gemini.reason).toBeNull();
+  });
+
+  it('attributes each answer to the right question category when scoring', async () => {
+    const run = await runBenchmark({
+      ...options,
+      page,
+      providers: [available('claude', perfectProvider('claude', page))],
+    });
+
+    const scores = run.results.claude.scores;
+    // The fixture supports all three categories; a mis-indexed category would
+    // pile every verdict into one of them.
+    expect(scores?.byCategory.EXTRACTION.evaluated).toBe(3);
+    expect(scores?.byCategory.COMPREHENSION.evaluated).toBe(1);
+    expect(scores?.byCategory.RELATION.evaluated).toBe(1);
+  });
+});
+
 describe('the run envelope', () => {
   it('reports the page facts and carries the disclaimer', async () => {
     const run = await runBenchmark({

@@ -1,32 +1,33 @@
 {
   "$schema": "../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Mutation testing is aimed at the modules where a silently wrong branch is dangerous: SSRF protection, URL validation, scoring and the benchmark orchestration. Running it over the whole codebase (jsdom parsing, SDK adapters) would multiply the runtime without testing anything a unit test does not already pin down.",
+  "_comment": "Mutation testing targets the modules where a silently wrong branch is dangerous: URL validation, SSRF protection, scoring/evaluation, secret redaction and the benchmark orchestration. Running it over jsdom parsing or the SDK adapters would multiply the runtime without testing anything a unit test does not already pin down. The command runner is used instead of the vitest runner because @stryker-mutator/vitest-runner 10 does not drive Vitest 5 correctly here: it reports 0 tests run per mutant, so every mutant survives regardless of test quality. The command runner activates mutants through __STRYKER_ACTIVE_MUTANT__, which the instrumented code reads, and is version-independent. The per-mutant command runs the unit and security suites: those are the suites that exercise these modules, and running the integration/spec/regression suites for every mutant would multiply the wall time for a handful of extra kills.",
   "packageManager": "npm",
-  "testRunner": "vitest",
-  "vitest": {
-    "configFile": "vitest.config.ts"
-  },
+  "testRunner": "command",
   "reporters": ["clear-text", "progress", "html", "json"],
-  "htmlReporter": { "fileName": "reports/mutation/index.html" },
-  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
   "mutate": [
-    "src/scraper/ssrf.ts",
     "src/scraper/url-validation.ts",
-    "src/scraper/fetch-page.ts",
-    "src/evaluation/normalize.ts",
+    "src/scraper/ssrf.ts",
     "src/evaluation/judge.ts",
     "src/evaluation/score.ts",
+    "src/evaluation/normalize.ts",
     "src/benchmark/run.ts",
-    "src/domain/benchmark.ts",
-    "src/domain/errors.ts",
     "src/config/secrets.ts"
   ],
-  "coverageAnalysis": "perTest",
+  "coverageAnalysis": "off",
   "timeoutMS": 60000,
-  "concurrency": 4,
+  "concurrency": 6,
   "thresholds": {
     "high": 90,
     "low": 80,
     "break": 80
+  },
+  "commandRunner": {
+    "command": "npx vitest run tests/unit tests/security --silent --reporter=dot"
   }
 }

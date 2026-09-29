@@ -6,6 +6,10 @@
  * that it stops discriminating.
  */
 
+// Stryker disable all: the two lookup tables below are data, not logic.
+// Mutating each entry produces hundreds of mutants that can only be killed by
+// asserting every word individually, which tests the table rather than the
+// normalisation rules that use it.
 /** Number words the evaluator treats as equal to their digits. */
 const NUMBER_WORDS: Record<string, string> = {
   zero: '0',
