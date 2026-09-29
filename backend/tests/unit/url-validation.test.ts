@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ScrapeError } from '../../src/domain/errors.js';
+import type { ScrapeError } from '../../src/domain/errors.js';
 import { parseTargetUrl } from '../../src/scraper/url-validation.js';
 
 function failure(input: unknown): ScrapeError {

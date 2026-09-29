@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-export interface DotEnvResult {
+interface DotEnvResult {
   /** Absolute path that was looked at. */
   path: string;
   loaded: boolean;

@@ -19,5 +19,10 @@
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     }
   },
-  "ignoreDependencies": ["tailwindcss", "vitest", "@vitest/coverage-v8"]
+  "ignoreDependencies": [
+    "tailwindcss",
+    "vitest",
+    "@vitest/coverage-v8",
+    "@stryker-mutator/command-runner"
+  ]
 }
