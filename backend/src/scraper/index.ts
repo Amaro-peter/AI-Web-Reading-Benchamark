@@ -3,7 +3,7 @@ import { extractContent, type ExtractedPage } from './extract.js';
 import { fetchPage, type FetchPageDeps } from './fetch-page.js';
 import { parseTargetUrl } from './url-validation.js';
 
-export interface ScrapeOptions {
+interface ScrapeOptions {
   timeoutMs: number;
   maxBytes: number;
   maxRedirects: number;

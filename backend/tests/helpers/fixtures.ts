@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const fixturesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');
 
-type FixtureName = 'article' | 'empty' | 'malicious';
+export type FixtureName = 'article' | 'empty' | 'malicious';
 
 /** Reads a deterministic HTML fixture used by regression and security tests. */
 export function loadFixture(name: FixtureName): string {

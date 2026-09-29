@@ -3,12 +3,15 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { BENCHMARK_DISCLAIMER } from '../app-info.js';
 import type { Env } from '../config/env.js';
 import { isScrapeError, statusForScrapeError } from '../domain/errors.js';
+import { benchmarkRoutes, type BenchmarkRouteDeps } from './routes/benchmark.js';
 import { healthRoutes } from './routes/health.js';
 
 interface BuildAppOptions {
   env: Env;
   /** Set to false in tests to keep the output readable. */
   logger?: boolean;
+  /** Seams the integration tests inject: providers, fetch and judge. */
+  benchmark?: Omit<BenchmarkRouteDeps, 'env'>;
 }
 
 /**
@@ -55,6 +58,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   );
 
   await app.register(healthRoutes);
+  await app.register(benchmarkRoutes({ env, ...options.benchmark }));
 
   app.get('/', async () => ({
     service: 'AI Web Reading Benchmark API',

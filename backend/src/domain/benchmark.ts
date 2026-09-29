@@ -1,5 +1,3 @@
-import type { ProviderId } from '../config/env.js';
-
 /**
  * The three things this benchmark tries to tell apart.
  *
@@ -48,10 +46,3 @@ export function countsTowardsScore(verdict: Verdict): boolean {
 }
 
 export type ProviderStatus = 'ok' | 'unavailable' | 'error';
-
-export interface ProviderInfo {
-  id: ProviderId;
-  /** Human-facing label, e.g. "ChatGPT". */
-  label: string;
-  model: string;
-}
