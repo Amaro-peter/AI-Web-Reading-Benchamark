@@ -21,6 +21,11 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
+      // Fastify plugins and the injectable LookupFn/AIProvider seams are
+      // async by contract, so several implementations legitimately have
+      // nothing to await. The rule fights those interfaces rather than
+      // finding real bugs here.
+      '@typescript-eslint/require-await': 'off',
       eqeqeq: ['error', 'always'],
     },
   },

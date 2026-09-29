@@ -1,0 +1,65 @@
+import type { Env } from '../config/env.js';
+import { extractContent, type ExtractedPage } from './extract.js';
+import { fetchPage, type FetchPageDeps } from './fetch-page.js';
+import { parseTargetUrl } from './url-validation.js';
+
+export interface ScrapeOptions {
+  timeoutMs: number;
+  maxBytes: number;
+  maxRedirects: number;
+  maxChars: number;
+}
+
+export interface ScrapedPage extends ExtractedPage {
+  requestedUrl: string;
+  finalUrl: string;
+  bytes: number;
+}
+
+export const DEFAULT_MAX_REDIRECTS = 5;
+
+export function scrapeOptionsFromEnv(env: Env): ScrapeOptions {
+  return {
+    timeoutMs: env.SCRAPER_TIMEOUT_MS,
+    maxBytes: env.SCRAPER_MAX_BYTES,
+    maxRedirects: DEFAULT_MAX_REDIRECTS,
+    maxChars: env.MAX_CONTENT_CHARS,
+  };
+}
+
+/**
+ * validate -> fetch (guarded) -> extract.
+ *
+ * Every failure along the way surfaces as a ScrapeError with a code the HTTP
+ * layer maps to a status, so the route itself contains no error taxonomy.
+ */
+export async function scrapePage(
+  rawUrl: string,
+  options: ScrapeOptions,
+  deps: FetchPageDeps = {},
+): Promise<ScrapedPage> {
+  const target = parseTargetUrl(rawUrl);
+
+  const fetched = await fetchPage(
+    target,
+    {
+      timeoutMs: options.timeoutMs,
+      maxBytes: options.maxBytes,
+      maxRedirects: options.maxRedirects,
+    },
+    deps,
+  );
+
+  const extracted = extractContent(fetched.html, fetched.finalUrl, {
+    maxChars: options.maxChars,
+  });
+
+  return {
+    ...extracted,
+    requestedUrl: fetched.requestedUrl,
+    finalUrl: fetched.finalUrl,
+    bytes: fetched.bytes,
+  };
+}
+
+export { parseTargetUrl } from './url-validation.js';
