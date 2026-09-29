@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+coverage/
+reports/
+playwright-report/
+test-results/
+.stryker-tmp/
+package-lock.json
+*.md
+backend/tests/fixtures/*.html

@@ -1,0 +1,53 @@
+{
+  "name": "ai-web-reading-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Experimental benchmark measuring how well different AIs read and extract information from a web page.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "lint": "npm run lint -w backend && npm run lint -w frontend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dead-code": "knip",
+    "test:unit": "npm run test:unit -w backend && npm run test:unit -w frontend",
+    "test:integration": "npm run test:integration -w backend",
+    "test:regression": "npm run test:regression -w backend",
+    "test:spec": "npm run test:spec -w backend",
+    "test:security": "npm run test:security -w backend && npm run test:security -w frontend",
+    "test:smoke": "npm run test:smoke -w backend && npm run test:smoke -w frontend",
+    "test:mutation": "npm run test:mutation -w backend",
+    "test:e2e": "playwright test",
+    "test:live": "npm run test:live -w backend",
+    "coverage": "npm run coverage -w backend && npm run coverage -w frontend",
+    "coverage:verify": "node scripts/verify-coverage.mjs",
+    "security:audit": "node scripts/security-audit.mjs",
+    "quality:sonar": "node scripts/sonar.mjs",
+    "ci": "node scripts/ci.mjs",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "concurrently": "^9.0.0",
+    "husky": "^9.1.0",
+    "knip": "^5.30.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true,
+    "unrs-resolver@1.12.2": true
+  }
+}

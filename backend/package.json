@@ -1,0 +1,46 @@
+{
+  "name": "@awrb/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:regression": "vitest run tests/regression",
+    "test:spec": "vitest run tests/spec",
+    "test:security": "vitest run tests/security",
+    "test:smoke": "vitest run tests/smoke",
+    "test:mutation": "stryker run",
+    "test:live": "vitest run tests/live --config vitest.live.config.ts",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@fastify/cors": "^10.0.0",
+    "@google/generative-ai": "^0.21.0",
+    "@mozilla/readability": "^0.5.0",
+    "fastify": "^5.0.0",
+    "jsdom": "^25.0.0",
+    "openai": "^4.68.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@stryker-mutator/core": "^8.6.0",
+    "@stryker-mutator/vitest-runner": "^8.6.0",
+    "@types/jsdom": "^21.1.0",
+    "@types/node": "^22.7.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "eslint": "^9.12.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0",
+    "vitest": "^2.1.0"
+  }
+}
