@@ -241,15 +241,45 @@ function findTermUnderHeading(page: ScrapedPage): TermUnderHeading | null {
     }
   }
 
-  for (const section of sections) {
-    for (const word of candidateTerms(section.body)) {
+  const unique: { term: string; heading: string; order: number; proper: boolean }[] = [];
+
+  for (const [sectionIndex, section] of sections.entries()) {
+    for (const [termIndex, word] of candidateTerms(section.body).entries()) {
       if (occurrences.get(word)?.size === 1) {
-        return { term: word, heading: section.heading };
+        unique.push({
+          term: word,
+          heading: section.heading,
+          order: sectionIndex * 1000 + termIndex,
+          proper: looksLikeProperNoun(word, section.body),
+        });
       }
     }
   }
 
-  return null;
+  if (unique.length === 0) {
+    return null;
+  }
+
+  // Prefer a proper noun ("Remodelado", "Carris") over a merely long word
+  // ("specifically"): a named thing makes a sharper question than an adverb
+  // that happens to occur once. Length then document order break ties, so the
+  // choice stays deterministic.
+  unique.sort(
+    (a, b) =>
+      Number(b.proper) - Number(a.proper) || b.term.length - a.term.length || a.order - b.order,
+  );
+
+  return unique[0] ?? null;
+}
+
+/**
+ * True when the word appears capitalised somewhere other than the start of a
+ * sentence, which is the cheap signal that it names something.
+ */
+function looksLikeProperNoun(word: string, body: string): boolean {
+  const capitalised = word.charAt(0).toUpperCase() + word.slice(1);
+  const midSentence = new RegExp(`[^.!?]\\s+${capitalised}\\b`);
+  return midSentence.test(body);
 }
 
 interface Section {
