@@ -18,7 +18,7 @@ export const SCRAPE_ERROR_CODES = [
   'EMPTY_CONTENT',
 ] as const;
 
-export type ScrapeErrorCode = (typeof SCRAPE_ERROR_CODES)[number];
+type ScrapeErrorCode = (typeof SCRAPE_ERROR_CODES)[number];
 
 /** An expected, client-facing scraping failure. */
 export class ScrapeError extends Error {

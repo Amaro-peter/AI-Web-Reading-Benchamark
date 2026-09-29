@@ -11,7 +11,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const USER_AGENT =
   'AIWebReadingBenchmark/0.1 (+https://github.com/Amaro-peter/AI-Web-Reading-Benchamark)';
 
-export interface FetchPageOptions {
+interface FetchPageOptions {
   timeoutMs: number;
   maxBytes: number;
   maxRedirects: number;
@@ -22,7 +22,7 @@ export interface FetchPageDeps {
   lookup?: LookupFn;
 }
 
-export interface FetchedPage {
+interface FetchedPage {
   /** The URL the caller asked for. */
   requestedUrl: string;
   /** The URL the content actually came from, after redirects. */

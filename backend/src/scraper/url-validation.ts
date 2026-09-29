@@ -4,10 +4,10 @@ import { ScrapeError } from '../domain/errors.js';
  * Upper bound on the URL a caller may submit. Long URLs are the cheap half of
  * several parser-confusion tricks, and no legitimate article needs one.
  */
-export const MAX_URL_LENGTH = 2048;
+const MAX_URL_LENGTH = 2048;
 
 /** The only schemes this service will ever fetch. */
-export const ALLOWED_PROTOCOLS = ['http:', 'https:'] as const;
+const ALLOWED_PROTOCOLS = ['http:', 'https:'] as const;
 
 /**
  * Parses and structurally validates a user-supplied URL.

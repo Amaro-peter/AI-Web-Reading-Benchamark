@@ -46,7 +46,7 @@ export interface DnsAnswer {
 export type LookupFn = (hostname: string) => Promise<DnsAnswer[]>;
 
 /** Strips the trailing root dot and IPv6 brackets, and lowercases. */
-export function normalizeHostname(hostname: string): string {
+function normalizeHostname(hostname: string): string {
   let host = hostname.trim().toLowerCase();
   if (host.startsWith('[') && host.endsWith(']')) {
     host = host.slice(1, -1);

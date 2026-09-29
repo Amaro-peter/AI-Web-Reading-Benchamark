@@ -33,6 +33,14 @@ export const EnvSchema = z.object({
    */
   AI_PROVIDER_MODE: z.enum(['real', 'mock']).default('real'),
 
+  /**
+   * Model overrides. Defaults live in config/models.ts; these let an operator
+   * pin a different model per provider without a code change.
+   */
+  GEMINI_MODEL: optionalSecret,
+  OPENAI_MODEL: optionalSecret,
+  ANTHROPIC_MODEL: optionalSecret,
+
   /** Hard ceiling on how long a single page fetch may take. */
   SCRAPER_TIMEOUT_MS: optionalNumber(10_000),
   /** Hard ceiling on the response body we are willing to read. */

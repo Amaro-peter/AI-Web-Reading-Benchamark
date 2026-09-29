@@ -41,7 +41,7 @@ const NOISE_SELECTORS = [
 ].join(',');
 
 /** Below this, there is not enough text to ask anything meaningful about. */
-export const MIN_CONTENT_WORDS = 20;
+const MIN_CONTENT_WORDS = 20;
 
 /** Readability output shorter than this is treated as a failed extraction. */
 const MIN_READABILITY_CHARS = 200;
@@ -66,7 +66,7 @@ export interface ExtractedPage {
   strategy: 'readability' | 'fallback';
 }
 
-export interface ExtractOptions {
+interface ExtractOptions {
   maxChars: number;
 }
 

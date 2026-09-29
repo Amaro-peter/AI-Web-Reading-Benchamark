@@ -5,7 +5,7 @@ import type { Env } from '../config/env.js';
 import { isScrapeError, statusForScrapeError } from '../domain/errors.js';
 import { healthRoutes } from './routes/health.js';
 
-export interface BuildAppOptions {
+interface BuildAppOptions {
   env: Env;
   /** Set to false in tests to keep the output readable. */
   logger?: boolean;

@@ -16,7 +16,7 @@ export interface ScrapedPage extends ExtractedPage {
   bytes: number;
 }
 
-export const DEFAULT_MAX_REDIRECTS = 5;
+const DEFAULT_MAX_REDIRECTS = 5;
 
 export function scrapeOptionsFromEnv(env: Env): ScrapeOptions {
   return {
@@ -61,5 +61,3 @@ export async function scrapePage(
     bytes: fetched.bytes,
   };
 }
-
-export { parseTargetUrl } from './url-validation.js';
