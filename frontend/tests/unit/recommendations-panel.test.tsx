@@ -14,6 +14,11 @@ const sampleReadiness: AIReadinessScore = {
     contentDensity: 90,
     affordance: 70,
   },
+  metrics: {
+    sid: 88,
+    hpci: 94,
+    aac: 78,
+  },
 };
 
 const sampleOptimizations: Optimization[] = [
@@ -128,5 +133,19 @@ describe('RecommendationsPanel', () => {
     expect(screen.getByText('AI Web Readability & Discoverability')).toBeInTheDocument();
     expect(screen.getByText('82/100')).toBeInTheDocument();
     expect(screen.getByText('Grade B')).toBeInTheDocument();
+  });
+
+  it('renders peer-reviewed scientific metric gauges when metrics are present', () => {
+    render(
+      <RecommendationsPanel readiness={sampleReadiness} optimizations={sampleOptimizations} />,
+    );
+
+    expect(screen.getByText('Peer-Reviewed Scientific Metric Gauges')).toBeInTheDocument();
+    expect(screen.getByText('Semantic Info Density (SID)')).toBeInTheDocument();
+    expect(screen.getByText('88%')).toBeInTheDocument();
+    expect(screen.getByText('Heading Path Consistency (HPCI)')).toBeInTheDocument();
+    expect(screen.getByText('94%')).toBeInTheDocument();
+    expect(screen.getByText('Agent Affordance Completeness (AAC)')).toBeInTheDocument();
+    expect(screen.getByText('78%')).toBeInTheDocument();
   });
 });

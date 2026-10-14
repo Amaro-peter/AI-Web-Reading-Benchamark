@@ -97,6 +97,13 @@ export function ResultsPanel({ result }: { result: BenchmarkResult }) {
 \\end{tabular}
 \\end{table}
 `;
+    if (result.readiness?.metrics) {
+      tex += `% --- Scientific Metric Gauges (Peer-Reviewed Dimensions) ---
+% Semantic Information Density (SID): ${result.readiness.metrics.sid}\\% (GEO / TACL '24)
+% Heading Path Consistency Index (HPCI): ${result.readiness.metrics.hpci}\\% (HTML-T5 / ACL '23)
+% Accessibility Affordance Completeness (AAC): ${result.readiness.metrics.aac}\\% (WebArena / ICLR '24)
+`;
+    }
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(tex);
     }

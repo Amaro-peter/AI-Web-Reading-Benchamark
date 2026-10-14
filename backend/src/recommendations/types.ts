@@ -15,6 +15,12 @@ export interface Optimization {
   codeSnippet?: string;
 }
 
+export interface ScientificMetrics {
+  sid: number;
+  hpci: number;
+  aac: number;
+}
+
 export interface AIReadinessScore {
   overall: number;
   grade: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -24,6 +30,7 @@ export interface AIReadinessScore {
     affordance: number;
     contentDensity: number;
   };
+  metrics?: ScientificMetrics;
 }
 
 export interface OptimizationResult {

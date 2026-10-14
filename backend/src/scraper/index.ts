@@ -16,6 +16,7 @@ export interface ScrapedPage extends ExtractedPage {
   requestedUrl: string;
   finalUrl: string;
   bytes: number;
+  rawHtml?: string;
 }
 
 const DEFAULT_MAX_REDIRECTS = 5;
@@ -62,5 +63,6 @@ export async function scrapePage(
     requestedUrl: fetched.requestedUrl,
     finalUrl: fetched.finalUrl,
     bytes: fetched.bytes,
+    rawHtml: fetched.html,
   };
 }
