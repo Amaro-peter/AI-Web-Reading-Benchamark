@@ -27,6 +27,8 @@ results side by side.
 - [Local CI](#local-ci)
 - [Pre-push hook](#pre-push-hook)
 - [Mutation testing](#mutation-testing)
+- [AI Web Readability & Optimization Engine](#ai-web-readability--optimization-engine)
+- [Academic Research Benchmark (Paper Publication)](#academic-research-benchmark-paper-publication)
 - [Security testing](#security-testing)
 - [SonarQube](#sonarqube)
 - [Deploying the backend to Railway](#deploying-the-backend-to-railway)
@@ -234,11 +236,12 @@ never shadowed by a stale `.env`. A missing `.env` is not an error.
 | `NODE_ENV` | `development` | `development` \| `test` \| `production` |
 | `FRONTEND_URL` | `http://localhost:3000` | the origin allowed by CORS |
 | `GEMINI_API_KEY` | — | missing ⇒ Gemini reported `unavailable` |
-| `OPENAI_API_KEY` | — | missing ⇒ ChatGPT reported `unavailable` |
-| `ANTHROPIC_API_KEY` | — | missing ⇒ Claude reported `unavailable` |
+| `OPENAI_API_KEY` / `OPEN-AI-KEY` | — | missing ⇒ ChatGPT reported `unavailable` |
+| `ANTHROPIC_API_KEY` / `CLAUDE-KEY` | — | missing ⇒ Claude reported `unavailable` |
+| `ANTHROPIC_WORKSPACE_ID` | — | required when unscoped user key (`sk-ant-usr-...`) is used |
 | `GEMINI_MODEL` | `gemini-2.5-pro` | model override |
-| `OPENAI_MODEL` | `gpt-4o` | model override |
-| `ANTHROPIC_MODEL` | `claude-opus-5` | model override |
+| `OPENAI_MODEL` | `gpt-4o-mini` | model override |
+| `ANTHROPIC_MODEL` | `claude-3-5-haiku-20241022` | model override |
 | `AI_PROVIDER_MODE` | `real` | `mock` uses deterministic in-process providers |
 | `SCRAPER_TIMEOUT_MS` | `10000` | page fetch timeout |
 | `SCRAPER_MAX_BYTES` | `2000000` | response size cap |
@@ -307,6 +310,7 @@ AI_PROVIDER_MODE=mock npm run dev
 | `npm run test:mutation` | mutation tests |
 | `npm run test:e2e` | system / E2E tests |
 | `npm run test:live` | **manual only** — real APIs, costs money |
+| `npm run benchmark:paper` | **paper benchmark** — evaluates real WebArena sites, outputs LaTeX & CSV |
 | `npm run coverage` | coverage report |
 | `npm run coverage:verify` | fail below the coverage threshold |
 | `npm run security:audit` | `npm audit` + Gitleaks |
@@ -423,6 +427,40 @@ Two documented exclusions, both marked in the source with the reason:
 > matter what the suite asserts, reporting a misleading ~22%. The command runner
 > activates mutants through `__STRYKER_ACTIVE_MUTANT__` and is
 > version-independent.
+
+---
+
+## AI Web Readability & Optimization Engine
+
+Every evaluated URL is audited by an AI Readability engine (`backend/src/recommendations/`) that scores the page and outputs practical engineering guidance:
+
+- **AI Readiness Index (0–100, Grades A–F)**: Aggregates four key dimensions:
+  1. **Structure & Headings (30%)**: Heading depth, sequence, hierarchy, and section chunking.
+  2. **Metadata & Entity Grounding (25%)**: OpenGraph, Schema.org JSON-LD, bylines, canonical tags, and language markers.
+  3. **Content Density & Context (25%)**: Ratio of content to boilerplate, truncation risks, and opening viewport density.
+  4. **Agent Action Affordances (20%)**: Semantic `<button>`, `<form>`, and accessible interactive targets for autonomous agents.
+- **Model-Specific Guidance**: Actionable remediation cards tailored for:
+  - **ChatGPT / OpenAI**: Grounding via structured JSON-LD, heading-based retrieval chunking, and semantic form/button discovery.
+  - **Claude / Anthropic**: High-density context preservation early in DOM tree, long-context narrative consistency, and clean section hierarchies.
+  - **Gemini / Google**: Direct entity grounding, structured table/list formatting, and multi-modal semantic image captions.
+- **Interactive UI**: Model filters (All / ChatGPT / Claude / Gemini), severity badges (`CRITICAL`, `IMPORTANT`, `BEST_PRACTICE`), and copy-pasteable HTML fixes.
+
+---
+
+## Academic Research Benchmark (Paper Publication)
+
+For peer-reviewed papers and formal evaluations, the system includes a benchmark runner (`scripts/run-paper-benchmark.mjs`) evaluated over real-world WebArena domains:
+
+- **WebArena Real-World Dataset** (`benchmarks/webarena_dataset.json`): Ground-truth evaluated across e-commerce (Books to Scrape), encyclopedic knowledge (Wikipedia Apollo 11), technical documentation (Fastify Framework), developer forums (Hacker News), and standard web specifications (MDN Web Docs).
+- **Execution**:
+  ```bash
+  npm run benchmark:paper
+  ```
+- **Generated Publication Artifacts**:
+  - `reports/paper-tables.tex`: LaTeX `booktabs` table formatted directly for ACM / IEEE / NeurIPS submissions.
+  - `reports/benchmark-summary.csv`: Machine-readable CSV data table with per-question breakdowns and latency.
+  - `reports/benchmark-summary.json`: Complete audit trace containing page metadata, gold answers, and model outputs.
+- **Export Toolbar**: The web frontend also includes 1-click export buttons for LaTeX Table, CSV, and JSON directly on the results view.
 
 ---
 

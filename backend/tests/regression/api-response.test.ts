@@ -54,11 +54,24 @@ describe('regression: response shape', () => {
       'finalUrl',
       'generatedAt',
       'judge',
+      'optimizations',
       'page',
       'questions',
+      'readiness',
       'results',
       'url',
     ]);
+    expect(body.readiness).toMatchObject({
+      overall: expect.any(Number),
+      grade: expect.stringMatching(/^[A-F]$/),
+      breakdown: {
+        structure: expect.any(Number),
+        metadata: expect.any(Number),
+        contentDensity: expect.any(Number),
+        affordance: expect.any(Number),
+      },
+    });
+    expect(Array.isArray(body.optimizations)).toBe(true);
   });
 
   it('has a stable page object', async () => {

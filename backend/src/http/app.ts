@@ -58,7 +58,21 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await app.register(cors, {
-    origin: env.FRONTEND_URL,
+    origin: (origin, cb) => {
+      if (!origin || origin === env.FRONTEND_URL) {
+        cb(null, true);
+        return;
+      }
+      if (
+        /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+        /^https:\/\/.*\.vercel\.app$/.test(origin)
+      ) {
+        cb(null, true);
+        return;
+      }
+      cb(null, false);
+    },
     methods: ['GET', 'POST'],
   });
 

@@ -25,6 +25,7 @@ export const EnvSchema = z.object({
   GEMINI_API_KEY: optionalSecret,
   OPENAI_API_KEY: optionalSecret,
   ANTHROPIC_API_KEY: optionalSecret,
+  ANTHROPIC_WORKSPACE_ID: optionalSecret,
 
   /**
    * "real" talks to the official SDKs. "mock" uses deterministic in-process
@@ -81,7 +82,21 @@ export type Env = z.infer<typeof EnvSchema>;
  * tests can exercise it without mutating global state.
  */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = EnvSchema.safeParse(source);
+  const normalizedSource: NodeJS.ProcessEnv = {
+    ...source,
+    OPENAI_API_KEY: source.OPENAI_API_KEY ?? source['OPEN-AI-KEY'] ?? source['OPEN_AI_KEY'],
+    ANTHROPIC_API_KEY:
+      source.ANTHROPIC_API_KEY ??
+      source['CLAUDE-KEY'] ??
+      source['CLAUDE_KEY'] ??
+      source['CLAUDE_API_KEY'],
+    ANTHROPIC_WORKSPACE_ID:
+      source.ANTHROPIC_WORKSPACE_ID ??
+      source['CLAUDE_WORKSPACE_ID'] ??
+      source['ANTHROPIC-WORKSPACE-ID'],
+    GEMINI_API_KEY: source.GEMINI_API_KEY ?? source['GEMINI-KEY'] ?? source['GEMINI_KEY'],
+  };
+  const parsed = EnvSchema.safeParse(normalizedSource);
 
   if (!parsed.success) {
     const details = parsed.error.issues

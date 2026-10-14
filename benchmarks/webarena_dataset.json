@@ -1,0 +1,258 @@
+[
+  {
+    "id": "wa-shop-01",
+    "domain": "ecommerce",
+    "name": "Books to Scrape - Single Product",
+    "url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
+    "description": "Standard e-commerce product page used in web agent literature. Tests price, availability, star rating, and cart action.",
+    "expectedAffordances": ["add-to-basket", "navigation-breadcrumb", "product-description"],
+    "groundTruthQuestions": [
+      {
+        "id": "wa-shop-01-q1",
+        "category": "EXTRACTION",
+        "prompt": "What is the exact price of 'A Light in the Attic'? Answer with the price and currency only.",
+        "expectedAnswer": "£51.77",
+        "acceptableAnswers": ["51.77", "£51.77", "51.77 pounds"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-shop-01-q2",
+        "category": "EXTRACTION",
+        "prompt": "How many copies are available in stock? Answer with the number only.",
+        "expectedAnswer": "22",
+        "acceptableAnswers": ["22", "22 available", "In stock (22 available)"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-shop-01-q3",
+        "category": "USABILITY_AFFORDANCE",
+        "prompt": "What is the primary action button on this product page? Answer with the button text only.",
+        "expectedAnswer": "Add to basket",
+        "acceptableAnswers": ["Add to basket", "add to basket", "Add to Basket", "Add to cart"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-shop-01-q4",
+        "category": "COMPREHENSION",
+        "prompt": "What type of product is this (e.g. book, electronic, apparel)? Answer with the product category only.",
+        "expectedAnswer": "Book",
+        "acceptableAnswers": ["Book", "book", "Poetry book", "poetry"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-shop-01-q5",
+        "category": "ABSTENTION",
+        "prompt": "What is the discount code for this book? Answer with the code only, or exactly \"NOT_IN_PAGE\" if the page does not say.",
+        "expectedAnswer": "NOT_IN_PAGE",
+        "acceptableAnswers": ["NOT_IN_PAGE", "not in page"],
+        "evaluationMethod": "abstention"
+      }
+    ]
+  },
+  {
+    "id": "wa-wiki-01",
+    "domain": "knowledge",
+    "name": "Wikipedia - Apollo 11",
+    "url": "https://en.wikipedia.org/wiki/Apollo_11",
+    "description": "Dense encyclopedic knowledge base article with tables, dates, and infoboxes.",
+    "expectedAffordances": ["table-of-contents", "reference-links", "search"],
+    "groundTruthQuestions": [
+      {
+        "id": "wa-wiki-01-q1",
+        "category": "EXTRACTION",
+        "prompt": "What is the title of this page? Answer with the title only.",
+        "expectedAnswer": "Apollo 11",
+        "acceptableAnswers": ["Apollo 11 - Wikipedia", "Apollo 11"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-wiki-01-q2",
+        "category": "EXTRACTION",
+        "prompt": "Who was the commander of the Apollo 11 mission? Answer with the name only.",
+        "expectedAnswer": "Neil Armstrong",
+        "acceptableAnswers": ["Neil Armstrong", "Neil A. Armstrong"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-wiki-01-q3",
+        "category": "RELATION",
+        "prompt": "In what year did Apollo 11 land humans on the Moon? Answer with the year only.",
+        "expectedAnswer": "1969",
+        "acceptableAnswers": ["1969", "July 1969"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-wiki-01-q4",
+        "category": "COMPREHENSION",
+        "prompt": "What was the name of the Apollo 11 Lunar Module? Answer with the call sign name only.",
+        "expectedAnswer": "Eagle",
+        "acceptableAnswers": ["Eagle", "LM Eagle", "Lunar Module Eagle"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-wiki-01-q5",
+        "category": "ABSTENTION",
+        "prompt": "Who wrote this Wikipedia article? Answer with the author's name only, or exactly \"NOT_IN_PAGE\" if the page does not say.",
+        "expectedAnswer": "NOT_IN_PAGE",
+        "acceptableAnswers": ["NOT_IN_PAGE", "not in page"],
+        "evaluationMethod": "abstention"
+      }
+    ]
+  },
+  {
+    "id": "wa-tech-01",
+    "domain": "tech",
+    "name": "Fastify Web Framework Home",
+    "url": "https://fastify.dev",
+    "description": "Developer framework landing page testing technical features, installation affordance, and ecosystem.",
+    "expectedAffordances": ["get-started", "github-link", "documentation-link"],
+    "groundTruthQuestions": [
+      {
+        "id": "wa-tech-01-q1",
+        "category": "EXTRACTION",
+        "prompt": "What web framework is described on this page? Answer with the framework name only.",
+        "expectedAnswer": "Fastify",
+        "acceptableAnswers": ["Fastify", "fastify"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-tech-01-q2",
+        "category": "COMPREHENSION",
+        "prompt": "What runtime environment or language does Fastify primarily target? Answer with the runtime name only.",
+        "expectedAnswer": "Node.js",
+        "acceptableAnswers": ["Node.js", "Node", "NodeJS"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-tech-01-q3",
+        "category": "USABILITY_AFFORDANCE",
+        "prompt": "What package manager installation command is shown for installing Fastify? Answer with the command only.",
+        "expectedAnswer": "npm install fastify",
+        "acceptableAnswers": ["npm i fastify", "npm install fastify", "npm install --save fastify"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-tech-01-q4",
+        "category": "RELATION",
+        "prompt": "What is claimed as one of Fastify's key priorities or architectural benefits (e.g. speed, plugins, typescript)? Answer briefly.",
+        "expectedAnswer": "Fast and low overhead",
+        "acceptableAnswers": ["speed", "fast", "low overhead", "plugins", "developer experience"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-tech-01-q5",
+        "category": "ABSTENTION",
+        "prompt": "What is the subscription pricing plan for Fastify? Answer with the monthly price only, or exactly \"NOT_IN_PAGE\" if the page does not say.",
+        "expectedAnswer": "NOT_IN_PAGE",
+        "acceptableAnswers": ["NOT_IN_PAGE", "not in page"],
+        "evaluationMethod": "abstention"
+      }
+    ]
+  },
+  {
+    "id": "wa-forum-01",
+    "domain": "forum",
+    "name": "Hacker News Frontpage",
+    "url": "https://news.ycombinator.com",
+    "description": "Minimalist tech forum testing list parsing, vote affordance, and community footer links.",
+    "expectedAffordances": ["vote-arrows", "submit-link", "comments-link", "search-box"],
+    "groundTruthQuestions": [
+      {
+        "id": "wa-forum-01-q1",
+        "category": "EXTRACTION",
+        "prompt": "What is the name of this website? Answer with the site name only.",
+        "expectedAnswer": "Hacker News",
+        "acceptableAnswers": ["Hacker News", "Y Combinator Hacker News"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-forum-01-q2",
+        "category": "USABILITY_AFFORDANCE",
+        "prompt": "Can a user submit a new link or story on this page? Answer YES or NO only.",
+        "expectedAnswer": "YES",
+        "acceptableAnswers": ["YES", "Yes", "yes"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-forum-01-q3",
+        "category": "RELATION",
+        "prompt": "What organization or accelerator operates Hacker News? Answer with the organization name only.",
+        "expectedAnswer": "Y Combinator",
+        "acceptableAnswers": ["Y Combinator", "YC"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-forum-01-q4",
+        "category": "COMPREHENSION",
+        "prompt": "What kind of content is discussed on this website (e.g. tech, cooking, gardening)? Answer with the primary topic only.",
+        "expectedAnswer": "Technology and startups",
+        "acceptableAnswers": ["tech", "technology", "startups", "computer science", "programming"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-forum-01-q5",
+        "category": "ABSTENTION",
+        "prompt": "What is the customer support phone number for Hacker News? Answer with the phone number only, or exactly \"NOT_IN_PAGE\" if the page does not say.",
+        "expectedAnswer": "NOT_IN_PAGE",
+        "acceptableAnswers": ["NOT_IN_PAGE", "not in page"],
+        "evaluationMethod": "abstention"
+      }
+    ]
+  },
+  {
+    "id": "wa-docs-01",
+    "domain": "tech",
+    "name": "MDN Web Docs - HTML Button Element",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button",
+    "description": "Technical web documentation covering DOM attributes, user interaction, and accessibility.",
+    "expectedAffordances": ["code-examples", "interactive-editor", "search"],
+    "groundTruthQuestions": [
+      {
+        "id": "wa-docs-01-q1",
+        "category": "EXTRACTION",
+        "prompt": "Which HTML element does this page document? Answer with the tag name only.",
+        "expectedAnswer": "<button>",
+        "acceptableAnswers": ["<button>", "button", "button element"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-docs-01-q2",
+        "category": "COMPREHENSION",
+        "prompt": "What is the default type attribute value for a button element when inside a form? Answer with the type only.",
+        "expectedAnswer": "submit",
+        "acceptableAnswers": ["submit", "type=\"submit\""],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-docs-01-q3",
+        "category": "RELATION",
+        "prompt": "Name one attribute specific to the button element described on this page (e.g. disabled, form, type). Answer with the attribute name only.",
+        "expectedAnswer": "disabled",
+        "acceptableAnswers": ["disabled", "type", "form", "name", "value", "formaction"],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-docs-01-q4",
+        "category": "USABILITY_AFFORDANCE",
+        "prompt": "What action does a button element allow a user to trigger? Answer in one short phrase.",
+        "expectedAnswer": "Click or submit actions",
+        "acceptableAnswers": [
+          "click",
+          "submit",
+          "trigger an action",
+          "user interaction",
+          "perform an action"
+        ],
+        "evaluationMethod": "fuzzy"
+      },
+      {
+        "id": "wa-docs-01-q5",
+        "category": "ABSTENTION",
+        "prompt": "What is the Python syntax for creating a button on this page? Answer with the code only, or exactly \"NOT_IN_PAGE\" if the page does not say.",
+        "expectedAnswer": "NOT_IN_PAGE",
+        "acceptableAnswers": ["NOT_IN_PAGE", "not in page"],
+        "evaluationMethod": "abstention"
+      }
+    ]
+  }
+]

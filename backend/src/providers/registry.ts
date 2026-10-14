@@ -57,7 +57,7 @@ function createProvider(env: Env, id: ProviderId): RegisteredProvider {
       ? new GeminiProvider(options)
       : id === 'openai'
         ? new OpenAIProvider(options)
-        : new ClaudeProvider(options);
+        : new ClaudeProvider({ ...options, workspaceId: env.ANTHROPIC_WORKSPACE_ID });
 
   return { ...base, status: 'ok', provider };
 }

@@ -14,6 +14,30 @@ interface UrlFormProps {
  * why nothing happens. It is disabled only while a run is in flight, to stop
  * a double submit.
  */
+const WEBARENA_PRESETS = [
+  { label: 'Presets (WebArena benchmark sites)...', url: '' },
+  {
+    label: 'Books to Scrape (E-Commerce)',
+    url: 'https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html',
+  },
+  {
+    label: 'Wikipedia: Apollo 11 (Knowledge Base)',
+    url: 'https://en.wikipedia.org/wiki/Apollo_11',
+  },
+  {
+    label: 'Fastify Framework (Tech Landing)',
+    url: 'https://fastify.dev',
+  },
+  {
+    label: 'Hacker News (Forum & Community)',
+    url: 'https://news.ycombinator.com',
+  },
+  {
+    label: 'MDN: Button Element (Tech Docs)',
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button',
+  },
+];
+
 export function UrlForm({ onSubmit, isRunning }: UrlFormProps) {
   const inputId = useId();
   const hintId = useId();
@@ -38,9 +62,27 @@ export function UrlForm({ onSubmit, isRunning }: UrlFormProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate={false} className="mt-8">
-      <label htmlFor={inputId} className="block text-sm font-medium">
-        Page URL
-      </label>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <label htmlFor={inputId} className="block text-sm font-medium">
+          Page URL
+        </label>
+        <select
+          aria-label="WebArena Presets"
+          onChange={(event) => {
+            if (event.target.value) {
+              setValue(event.target.value);
+            }
+          }}
+          disabled={isRunning}
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        >
+          {WEBARENA_PRESETS.map((p) => (
+            <option key={p.label} value={p.url}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="mt-2 flex flex-col gap-3 sm:flex-row">
         <input

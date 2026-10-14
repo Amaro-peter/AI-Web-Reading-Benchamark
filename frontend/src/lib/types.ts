@@ -75,6 +75,31 @@ export interface PageSummary {
   extractionStrategy: string;
 }
 
+export type OptimizationCategory = 'STRUCTURE' | 'METADATA' | 'AFFORDANCE' | 'CONTENT_DENSITY';
+export type OptimizationSeverity = 'CRITICAL' | 'IMPORTANT' | 'BEST_PRACTICE';
+
+export interface Optimization {
+  id: string;
+  category: OptimizationCategory;
+  severity: OptimizationSeverity;
+  targetModels: ProviderId[];
+  title: string;
+  explanation: string;
+  action: string;
+  codeSnippet?: string;
+}
+
+export interface AIReadinessScore {
+  overall: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  breakdown: {
+    structure: number;
+    metadata: number;
+    affordance: number;
+    contentDensity: number;
+  };
+}
+
 export interface BenchmarkResult {
   url: string;
   finalUrl: string;
@@ -85,6 +110,8 @@ export interface BenchmarkResult {
   disclaimer: string;
   generatedAt: string;
   durationMs: number;
+  readiness?: AIReadinessScore;
+  optimizations?: Optimization[];
 }
 
 export interface ApiError {

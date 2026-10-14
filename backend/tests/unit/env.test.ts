@@ -69,6 +69,17 @@ describe('provider credentials', () => {
     expect(apiKeyVariableFor(provider)).toBe(variable);
   });
 
+  it('reads provider keys from alternative aliases like OPEN-AI-KEY and CLAUDE-KEY', () => {
+    const env = loadEnv({
+      'OPEN-AI-KEY': 'sk-openai-aliased',
+      'CLAUDE-KEY': 'sk-claude-aliased',
+      CLAUDE_WORKSPACE_ID: 'wrkspc_123',
+    });
+    expect(apiKeyFor(env, 'openai')).toBe('sk-openai-aliased');
+    expect(apiKeyFor(env, 'claude')).toBe('sk-claude-aliased');
+    expect(env.ANTHROPIC_WORKSPACE_ID).toBe('wrkspc_123');
+  });
+
   it('covers every known provider', () => {
     expect(PROVIDER_IDS).toEqual(['gemini', 'openai', 'claude']);
   });

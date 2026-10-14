@@ -7,6 +7,7 @@ interface ClaudeProviderOptions {
   model: string;
   maxOutputTokens: number;
   timeoutMs: number;
+  workspaceId?: string;
 }
 
 /**
@@ -33,6 +34,9 @@ export class ClaudeProvider implements AIProvider {
         apiKey: options.apiKey,
         timeout: options.timeoutMs,
         maxRetries: 1,
+        ...(options.workspaceId
+          ? { defaultHeaders: { 'anthropic-workspace-id': options.workspaceId } }
+          : {}),
       });
   }
 
@@ -43,8 +47,6 @@ export class ClaudeProvider implements AIProvider {
         max_tokens: this.maxOutputTokens,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: buildUserPrompt(input) }],
-        // Short factual answers: the lowest effort level is the right spend.
-        output_config: { effort: 'low' },
       });
 
       if (response.stop_reason === 'refusal') {

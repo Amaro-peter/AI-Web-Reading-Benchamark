@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HomePage from '@/app/page';
@@ -52,6 +52,15 @@ describe('the page before a run', () => {
   it('shows no results before anything has been run', () => {
     render(<HomePage />);
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('populates URL field when a WebArena preset is selected', () => {
+    render(<HomePage />);
+    const select = screen.getByRole('combobox', { name: 'WebArena Presets' });
+    const input = screen.getByLabelText('Page URL') as HTMLInputElement;
+
+    fireEvent.change(select, { target: { value: 'https://fastify.dev' } });
+    expect(input.value).toBe('https://fastify.dev');
   });
 });
 

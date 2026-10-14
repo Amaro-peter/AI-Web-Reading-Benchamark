@@ -5,7 +5,9 @@ const MIN_SECRET_LENGTH = 8;
 
 /** Every credential currently configured, for use as a redaction list. */
 export function collectSecrets(env: Env): string[] {
-  return PROVIDER_IDS.map((id) => apiKeyFor(env, id)).filter(
+  const providerKeys = PROVIDER_IDS.map((id) => apiKeyFor(env, id));
+  const otherSecrets = [env.ANTHROPIC_WORKSPACE_ID];
+  return [...providerKeys, ...otherSecrets].filter(
     (value): value is string => value !== undefined && value.length >= MIN_SECRET_LENGTH,
   );
 }

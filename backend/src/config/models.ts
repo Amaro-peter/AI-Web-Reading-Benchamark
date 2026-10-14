@@ -22,8 +22,8 @@ interface ModelConfig {
 
 export const DEFAULT_MODELS: Record<ProviderId, ModelConfig> = {
   gemini: { label: 'Gemini', model: 'gemini-2.5-pro', maxOutputTokens: 1024 },
-  openai: { label: 'ChatGPT', model: 'gpt-4o', maxOutputTokens: 1024 },
-  claude: { label: 'Claude', model: 'claude-opus-5', maxOutputTokens: 2048 },
+  openai: { label: 'ChatGPT', model: 'gpt-4o-mini', maxOutputTokens: 1024 },
+  claude: { label: 'Claude', model: 'claude-3-5-haiku-20241022', maxOutputTokens: 2048 },
 };
 
 const MODEL_OVERRIDE: Record<ProviderId, keyof Env> = {

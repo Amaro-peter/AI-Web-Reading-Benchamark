@@ -6,6 +6,11 @@ import { evaluateAnswer, heuristicJudge, type Judge } from '../evaluation/judge.
 import { summarizeScores, type ScoreSummary } from '../evaluation/score.js';
 import { ProviderError, type AIProvider, type RegisteredProvider } from '../providers/types.js';
 import type { ScrapedPage } from '../scraper/index.js';
+import {
+  generateOptimizations,
+  type AIReadinessScore,
+  type Optimization,
+} from '../recommendations/index.js';
 import { buildQuestions } from './questions.js';
 
 interface AnswerRecord {
@@ -52,6 +57,8 @@ interface BenchmarkRun {
   disclaimer: string;
   generatedAt: string;
   durationMs: number;
+  readiness: AIReadinessScore;
+  optimizations: Optimization[];
 }
 
 interface RunBenchmarkOptions {
@@ -84,6 +91,8 @@ export async function runBenchmark(options: RunBenchmarkOptions): Promise<Benchm
     providers.map((entry) => runProvider(entry, page, questions, judge, timeoutMs, now)),
   );
 
+  const { readiness, optimizations } = generateOptimizations(page);
+
   return {
     url: page.requestedUrl,
     finalUrl: page.finalUrl,
@@ -108,6 +117,8 @@ export async function runBenchmark(options: RunBenchmarkOptions): Promise<Benchm
     disclaimer: BENCHMARK_DISCLAIMER,
     generatedAt: new Date(startedAt).toISOString(),
     durationMs: now() - startedAt,
+    readiness,
+    optimizations,
   };
 }
 

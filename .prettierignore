@@ -7,5 +7,6 @@ playwright-report/
 test-results/
 .stryker-tmp/
 package-lock.json
+frontend/next-env.d.ts
 *.md
 backend/tests/fixtures/*.html

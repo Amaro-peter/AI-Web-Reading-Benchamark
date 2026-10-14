@@ -1,5 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { benchmarkResultFixture } from '../helpers/fixture';
 
@@ -128,5 +128,46 @@ describe('the comparison table', () => {
     for (const editorial of ['winner', 'best model', 'rank', 'worst', 'recommended']) {
       expect(text).not.toContain(editorial);
     }
+  });
+
+  it('supports exporting JSON and CSV results', () => {
+    const createObjectUrlMock = vi.fn().mockReturnValue('blob:mock-url');
+    const revokeObjectUrlMock = vi.fn();
+    window.URL.createObjectURL = createObjectUrlMock;
+    window.URL.revokeObjectURL = revokeObjectUrlMock;
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(<ResultsPanel result={benchmarkResultFixture()} />);
+
+    const exportJsonBtn = screen.getByRole('button', { name: 'Export JSON' });
+    fireEvent.click(exportJsonBtn);
+    expect(createObjectUrlMock).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+
+    const exportCsvBtn = screen.getByRole('button', { name: 'Export CSV' });
+    fireEvent.click(exportCsvBtn);
+    expect(createObjectUrlMock).toHaveBeenCalledTimes(2);
+
+    clickSpy.mockRestore();
+  });
+
+  it('supports copying academic LaTeX table', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: writeTextMock,
+      },
+    });
+
+    render(<ResultsPanel result={benchmarkResultFixture()} />);
+
+    const copyBtn = screen.getByRole('button', { name: 'Copy LaTeX Table' });
+    fireEvent.click(copyBtn);
+
+    expect(writeTextMock).toHaveBeenCalled();
+    const latex = (writeTextMock.mock.calls[0]?.[0] as string) || '';
+    expect(latex).toContain('\\begin{table}');
+    expect(latex).toContain('\\caption{Evaluation Results on');
+    expect(screen.getByText('LaTeX Copied!')).toBeInTheDocument();
   });
 });

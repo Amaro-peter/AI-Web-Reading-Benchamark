@@ -30,6 +30,7 @@
     "test:mutation": "npm run test:mutation -w backend",
     "test:e2e": "playwright test",
     "test:live": "npm run test:live -w backend",
+    "benchmark:paper": "node scripts/run-paper-benchmark.mjs",
     "coverage": "npm run coverage -w backend && npm run coverage -w frontend",
     "coverage:verify": "node scripts/verify-coverage.mjs",
     "security:audit": "node scripts/security-audit.mjs",
