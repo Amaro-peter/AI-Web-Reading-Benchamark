@@ -241,7 +241,7 @@ never shadowed by a stale `.env`. A missing `.env` is not an error.
 | `ANTHROPIC_WORKSPACE_ID` | — | required when unscoped user key (`sk-ant-usr-...`) is used |
 | `GEMINI_MODEL` | `gemini-2.5-pro` | model override |
 | `OPENAI_MODEL` | `gpt-4o-mini` | model override |
-| `ANTHROPIC_MODEL` | `claude-3-5-haiku-20241022` | model override |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | model override |
 | `AI_PROVIDER_MODE` | `real` | `mock` uses deterministic in-process providers |
 | `SCRAPER_TIMEOUT_MS` | `10000` | page fetch timeout |
 | `SCRAPER_MAX_BYTES` | `2000000` | response size cap |
