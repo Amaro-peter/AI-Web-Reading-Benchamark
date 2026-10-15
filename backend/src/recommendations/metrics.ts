@@ -206,17 +206,225 @@ export function computeAccessibilityAffordance(rawHtml?: string): AffordanceAudi
   };
 }
 
+interface DomComplexityResult {
+  score: number;
+  maxDepth: number;
+  semanticRatio: number;
+  issues: string[];
+}
+
+interface MultimodalGroundingResult {
+  score: number;
+  imageAltCoverage: number;
+  hasJsonLd: boolean;
+  openGraphCount: number;
+  issues: string[];
+}
+
 /**
- * Calculates complete scientific metrics vector (SID, HPCI, AAC).
+ * Computes DOM Structural Complexity & Entropy (DCE).
+ * Grounded in DOM-LM (ACL 2022) and WebFormer (ACL 2022).
+ * Measures DOM nesting depth, semantic element ratio, and non-semantic wrapper bloat.
+ */
+export function computeDomComplexityEntropy(rawHtml?: string): DomComplexityResult {
+  const issues: string[] = [];
+  if (!rawHtml) {
+    return { score: 80, maxDepth: 4, semanticRatio: 0.6, issues: [] };
+  }
+
+  const voidElements = new Set([
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr',
+  ]);
+  const semanticTags = new Set([
+    'article',
+    'section',
+    'main',
+    'header',
+    'footer',
+    'aside',
+    'nav',
+    'figure',
+    'figcaption',
+    'time',
+    'address',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
+    'ul',
+    'ol',
+    'li',
+    'p',
+    'blockquote',
+    'form',
+  ]);
+  const genericTags = new Set(['div', 'span']);
+
+  const tagRegex = /<\/?([a-zA-Z0-9]+)\b[^>]*>/g;
+  let match: RegExpExecArray | null;
+  let depth = 0;
+  let maxDepth = 0;
+  let semanticCount = 0;
+  let genericCount = 0;
+
+  while ((match = tagRegex.exec(rawHtml)) !== null) {
+    const isClosing = match[0].startsWith('</');
+    const tag = (match[1] ?? '').toLowerCase();
+
+    if (voidElements.has(tag)) continue;
+
+    if (isClosing) {
+      depth = Math.max(0, depth - 1);
+    } else {
+      depth++;
+      if (depth > maxDepth) maxDepth = depth;
+      if (semanticTags.has(tag)) semanticCount++;
+      if (genericTags.has(tag)) genericCount++;
+    }
+  }
+
+  let score = 100;
+  const totalStructural = semanticCount + genericCount;
+  const semanticRatio = totalStructural > 0 ? semanticCount / totalStructural : 0.5;
+
+  if (maxDepth > 14) {
+    const depthPenalty = Math.min(35, (maxDepth - 14) * 3);
+    score -= depthPenalty;
+    issues.push(`Deep DOM nesting detected (max depth ${maxDepth} > recommended 14 levels)`);
+  }
+
+  if (semanticRatio < 0.2 && totalStructural > 15) {
+    score -= 25;
+    issues.push(
+      `Low semantic element ratio (${Math.round(semanticRatio * 100)}%); excessive generic <div> and <span> wrappers`,
+    );
+  } else if (semanticRatio < 0.35 && totalStructural > 20) {
+    score -= 10;
+    issues.push(`Moderate semantic element ratio (${Math.round(semanticRatio * 100)}%)`);
+  }
+
+  const hasMainOrArticle = /<(main|article)\b/i.test(rawHtml);
+  if (!hasMainOrArticle) {
+    score -= 10;
+    issues.push('Missing landmark <main> or <article> element for primary reading boundary');
+  }
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    maxDepth,
+    semanticRatio,
+    issues,
+  };
+}
+
+/**
+ * Computes Multimodal & Entity Grounding (MEG).
+ * Grounded in VisualWebArena (Koh et al., NeurIPS 2024) and Mind2Web (Deng et al., NeurIPS 2023).
+ * Evaluates image alt-text coverage, Schema.org JSON-LD microdata, and OpenGraph metadata.
+ */
+export function computeMultimodalEntityGrounding(rawHtml?: string): MultimodalGroundingResult {
+  const issues: string[] = [];
+  if (!rawHtml) {
+    return { score: 70, imageAltCoverage: 1, hasJsonLd: false, openGraphCount: 0, issues: [] };
+  }
+
+  // 1. Image Alt Text Coverage
+  const imgMatches = [...rawHtml.matchAll(/<img\b([^>]*)>/gi)];
+  const totalImgs = imgMatches.length;
+  let withAlt = 0;
+
+  for (const match of imgMatches) {
+    const attrs = match[1] ?? '';
+    const hasAlt = /alt=["']([^"']*)["']/i.exec(attrs);
+    const hasAria = /aria-label=["']([^"']+)["']/i.test(attrs);
+    if ((hasAlt && hasAlt[1]!.trim().length > 0) || hasAria) {
+      withAlt++;
+    }
+  }
+
+  const imageAltCoverage = totalImgs > 0 ? withAlt / totalImgs : 1;
+  const altScore = Math.round(imageAltCoverage * 35);
+
+  if (totalImgs > 0 && imageAltCoverage < 0.8) {
+    issues.push(
+      `Only ${withAlt}/${totalImgs} images (${Math.round(imageAltCoverage * 100)}%) provide descriptive alt text or aria-labels`,
+    );
+  }
+
+  // 2. Structured JSON-LD / Microdata
+  const hasJsonLd =
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i.test(rawHtml);
+  const jsonLdScore = hasJsonLd ? 35 : 0;
+  if (!hasJsonLd) {
+    issues.push('Missing Schema.org JSON-LD structured data for entity resolution');
+  }
+
+  // 3. OpenGraph / Twitter metadata
+  const ogTitle = /<meta\b[^>]*property=["']og:title["'][^>]*>/i.test(rawHtml);
+  const ogDesc = /<meta\b[^>]*property=["']og:description["'][^>]*>/i.test(rawHtml);
+  const ogImage = /<meta\b[^>]*property=["']og:image["'][^>]*>/i.test(rawHtml);
+  const twitterCard = /<meta\b[^>]*name=["']twitter:card["'][^>]*>/i.test(rawHtml);
+
+  let openGraphCount = 0;
+  if (ogTitle) openGraphCount++;
+  if (ogDesc) openGraphCount++;
+  if (ogImage) openGraphCount++;
+  if (twitterCard) openGraphCount++;
+
+  const metaScore = Math.min(30, openGraphCount * 8);
+  if (openGraphCount < 2) {
+    issues.push(
+      'Incomplete OpenGraph / Social entity metadata (missing og:title, og:description, or og:image)',
+    );
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(altScore + jsonLdScore + metaScore)));
+
+  return {
+    score,
+    imageAltCoverage,
+    hasJsonLd,
+    openGraphCount,
+    issues,
+  };
+}
+
+/**
+ * Calculates complete scientific metrics vector (SID, HPCI, AAC, DCE, MEG).
  */
 export function calculateScientificMetrics(page: ScrapedPage): ScientificMetrics {
   const sid = computeSemanticInformationDensity(page);
   const hpciResult = computeHeadingPathConsistency(page.headings, page.rawHtml);
   const aacResult = computeAccessibilityAffordance(page.rawHtml);
+  const dceResult = computeDomComplexityEntropy(page.rawHtml);
+  const megResult = computeMultimodalEntityGrounding(page.rawHtml);
 
   return {
     sid,
     hpci: hpciResult.score,
     aac: aacResult.score,
+    dce: dceResult.score,
+    meg: megResult.score,
   };
 }

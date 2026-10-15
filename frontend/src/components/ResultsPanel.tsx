@@ -6,9 +6,15 @@ import { PROVIDER_IDS, type BenchmarkResult } from '@/lib/types';
 import { ComparisonTable } from './ComparisonTable';
 import { ProviderScoreCard } from './ProviderScoreCard';
 import { RecommendationsPanel } from './RecommendationsPanel';
+import { HeadingTreeInspector } from './HeadingTreeInspector';
+import { AiFixPack } from './AiFixPack';
+import { AcademicExportHub } from './AcademicExportHub';
 
 export function ResultsPanel({ result }: { result: BenchmarkResult }) {
   const [copiedLatex, setCopiedLatex] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'outline' | 'fixpack' | 'academic'>(
+    'overview',
+  );
 
   function downloadJson() {
     const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
@@ -204,28 +210,105 @@ export function ResultsPanel({ result }: { result: BenchmarkResult }) {
         </div>
       </dl>
 
-      <h3 className="mt-8 text-lg font-semibold">Scores</h3>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Correct = 1, partial = 0.5, incorrect = 0. Questions the page cannot answer are excluded
-        from the total rather than counted as failures.
-      </p>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {PROVIDER_IDS.map((id) => {
-          const provider = result.results[id];
-          return provider === undefined ? null : <ProviderScoreCard key={id} result={provider} />;
-        })}
+      <div className="mt-8 border-b border-slate-200 dark:border-slate-800">
+        <nav className="flex space-x-2 sm:space-x-4 overflow-x-auto" aria-label="Result tabs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`whitespace-nowrap pb-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === 'overview'
+                ? 'border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            Overview &amp; Answers
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('outline')}
+            className={`whitespace-nowrap pb-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === 'outline'
+                ? 'border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            Heading Outline ({result.page.headings.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('fixpack')}
+            className={`whitespace-nowrap pb-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === 'fixpack'
+                ? 'border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            AI Fix Pack
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('academic')}
+            className={`whitespace-nowrap pb-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === 'academic'
+                ? 'border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            Academic &amp; BibTeX
+          </button>
+        </nav>
       </div>
 
-      <RecommendationsPanel readiness={result.readiness} optimizations={result.optimizations} />
+      {activeTab === 'overview' && (
+        <div className="mt-6 space-y-8">
+          <div>
+            <h3 className="text-lg font-semibold">Scores</h3>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Correct = 1, partial = 0.5, incorrect = 0. Questions the page cannot answer are
+              excluded from the total rather than counted as failures.
+            </p>
 
-      <h3 className="mt-8 text-lg font-semibold">Every answer</h3>
-      <p className="mt-1 mb-4 text-sm text-slate-600 dark:text-slate-400">
-        Nothing is hidden or summarised away — the expected answer is shown next to each question so
-        you can check the grading yourself.
-      </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PROVIDER_IDS.map((id) => {
+                const provider = result.results[id];
+                return provider === undefined ? null : (
+                  <ProviderScoreCard key={id} result={provider} />
+                );
+              })}
+            </div>
+          </div>
 
-      <ComparisonTable result={result} />
+          <RecommendationsPanel readiness={result.readiness} optimizations={result.optimizations} />
+
+          <div>
+            <h3 className="text-lg font-semibold">Every answer</h3>
+            <p className="mt-1 mb-4 text-sm text-slate-600 dark:text-slate-400">
+              Nothing is hidden or summarised away — the expected answer is shown next to each
+              question so you can check the grading yourself.
+            </p>
+
+            <ComparisonTable result={result} />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'outline' && (
+        <div className="mt-6">
+          <HeadingTreeInspector title={result.page.title} headings={result.page.headings} />
+        </div>
+      )}
+
+      {activeTab === 'fixpack' && (
+        <div className="mt-6">
+          <AiFixPack page={result.page} url={result.finalUrl || result.url} />
+        </div>
+      )}
+
+      {activeTab === 'academic' && (
+        <div className="mt-6">
+          <AcademicExportHub result={result} />
+        </div>
+      )}
     </section>
   );
 }

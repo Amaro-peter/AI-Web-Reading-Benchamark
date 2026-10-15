@@ -26,11 +26,18 @@ function AnswerCell({
 
   return (
     <td className="align-top px-3 py-3 text-sm">
-      <span
-        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${VERDICT_CLASSES[answer.verdict]}`}
-      >
-        {VERDICT_LABELS[answer.verdict]}
-      </span>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span
+          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${VERDICT_CLASSES[answer.verdict]}`}
+        >
+          {VERDICT_LABELS[answer.verdict]}
+        </span>
+        {answer.durationMs > 0 && (
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+            {answer.durationMs}ms
+          </span>
+        )}
+      </div>
       <p className="mt-1.5 whitespace-pre-wrap break-words text-slate-800 dark:text-slate-200">
         {answer.error !== null ? (
           <span className="italic text-rose-700 dark:text-rose-300">{answer.error.message}</span>

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateScientificMetrics,
   computeAccessibilityAffordance,
+  computeDomComplexityEntropy,
   computeHeadingPathConsistency,
+  computeMultimodalEntityGrounding,
   computeSemanticInformationDensity,
 } from '../../src/recommendations/metrics.js';
 import type { ScrapedPage } from '../../src/scraper/index.js';
@@ -145,8 +147,112 @@ describe('computeAccessibilityAffordance (AAC)', () => {
   });
 });
 
+describe('computeDomComplexityEntropy (DCE)', () => {
+  it('gives high score for flat semantic documents', () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <main>
+            <article>
+              <h1>Title</h1>
+              <section><p>Clean content</p></section>
+            </article>
+          </main>
+        </body>
+      </html>
+    `;
+    const result = computeDomComplexityEntropy(html);
+    expect(result.score).toBeGreaterThanOrEqual(85);
+    expect(result.maxDepth).toBeLessThanOrEqual(10);
+    expect(result.semanticRatio).toBeGreaterThan(0.5);
+  });
+
+  it('penalizes deep DOM nesting (>14 levels)', () => {
+    let deepHtml = '<main>';
+    for (let i = 0; i < 20; i++) deepHtml += '<div>';
+    deepHtml += '<p>Deep content</p>';
+    for (let i = 0; i < 20; i++) deepHtml += '</div>';
+    deepHtml += '</main>';
+
+    const result = computeDomComplexityEntropy(deepHtml);
+    expect(result.score).toBeLessThan(90);
+    expect(result.maxDepth).toBeGreaterThan(14);
+    expect(result.issues.some((i) => i.includes('Deep DOM nesting'))).toBe(true);
+  });
+
+  it('penalizes excessive generic div and span soup', () => {
+    let divSoup = '<html><body>';
+    for (let i = 0; i < 30; i++) divSoup += '<div><span>text</span></div>';
+    divSoup += '</body></html>';
+
+    const result = computeDomComplexityEntropy(divSoup);
+    expect(result.score).toBeLessThan(80);
+    expect(result.issues.some((i) => i.includes('Low semantic element ratio'))).toBe(true);
+  });
+
+  it('handles fallback when rawHtml is not provided', () => {
+    const fallback = computeDomComplexityEntropy(undefined);
+    expect(fallback.score).toBe(80);
+  });
+});
+
+describe('computeMultimodalEntityGrounding (MEG)', () => {
+  it('awards full score when images have alt text and JSON-LD is embedded', () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta property="og:title" content="Test">
+          <meta property="og:description" content="Description">
+          <meta property="og:image" content="https://example.com/og.jpg">
+          <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article"}</script>
+        </head>
+        <body>
+          <img src="chart.png" alt="A quarterly revenue chart">
+        </body>
+      </html>
+    `;
+    const result = computeMultimodalEntityGrounding(html);
+    expect(result.score).toBeGreaterThanOrEqual(90);
+    expect(result.imageAltCoverage).toBe(1);
+    expect(result.hasJsonLd).toBe(true);
+  });
+
+  it('penalizes missing alt text on images', () => {
+    const html = `
+      <html>
+        <body>
+          <img src="unlabeled1.jpg">
+          <img src="unlabeled2.jpg">
+        </body>
+      </html>
+    `;
+    const result = computeMultimodalEntityGrounding(html);
+    expect(result.imageAltCoverage).toBe(0);
+    expect(result.score).toBeLessThan(50);
+    expect(result.issues.some((i) => i.includes('images (0%) provide descriptive alt text'))).toBe(
+      true,
+    );
+  });
+
+  it('penalizes missing JSON-LD structured data', () => {
+    const html = '<html><head></head><body><p>Text</p></body></html>';
+    const result = computeMultimodalEntityGrounding(html);
+    expect(result.hasJsonLd).toBe(false);
+    expect(result.issues).toContain(
+      'Missing Schema.org JSON-LD structured data for entity resolution',
+    );
+  });
+
+  it('handles fallback when rawHtml is not provided', () => {
+    const fallback = computeMultimodalEntityGrounding(undefined);
+    expect(fallback.score).toBe(70);
+  });
+});
+
 describe('calculateScientificMetrics', () => {
-  it('calculates sid, hpci, and aac bounded between 0 and 100', () => {
+  it('calculates all 5 metrics (sid, hpci, aac, dce, meg) bounded between 0 and 100', () => {
     const page = fakePage({
       rawHtml: '<h1>Topic</h1><h2>Subtopic</h2><button aria-label="Save">Save</button>',
     });
@@ -158,5 +264,9 @@ describe('calculateScientificMetrics', () => {
     expect(metrics.hpci).toBeLessThanOrEqual(100);
     expect(metrics.aac).toBeGreaterThanOrEqual(0);
     expect(metrics.aac).toBeLessThanOrEqual(100);
+    expect(metrics.dce).toBeGreaterThanOrEqual(0);
+    expect(metrics.dce).toBeLessThanOrEqual(100);
+    expect(metrics.meg).toBeGreaterThanOrEqual(0);
+    expect(metrics.meg).toBeLessThanOrEqual(100);
   });
 });

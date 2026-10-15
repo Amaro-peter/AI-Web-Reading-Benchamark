@@ -93,6 +93,8 @@ export interface ScientificMetrics {
   sid: number;
   hpci: number;
   aac: number;
+  dce?: number;
+  meg?: number;
 }
 
 export interface AIReadinessScore {

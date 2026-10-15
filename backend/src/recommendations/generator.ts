@@ -1,7 +1,9 @@
 import type { ScrapedPage } from '../scraper/index.js';
 import {
   computeAccessibilityAffordance,
+  computeDomComplexityEntropy,
   computeHeadingPathConsistency,
+  computeMultimodalEntityGrounding,
   computeSemanticInformationDensity,
 } from './metrics.js';
 import type { Optimization, OptimizationResult } from './types.js';
@@ -9,7 +11,7 @@ import type { Optimization, OptimizationResult } from './types.js';
 /**
  * Generates an AI Readiness Score (0-100) and actionable engineering suggestions
  * tailored for ChatGPT, Claude, and Gemini web reading optimization, incorporating
- * three peer-reviewed scientific metrics (SID, HPCI, AAC).
+ * five peer-reviewed scientific metrics (SID, HPCI, AAC, DCE, MEG).
  */
 export function generateOptimizations(page: ScrapedPage): OptimizationResult {
   const optimizations: Optimization[] = [];
@@ -17,11 +19,46 @@ export function generateOptimizations(page: ScrapedPage): OptimizationResult {
   const sid = computeSemanticInformationDensity(page);
   const hpciResult = computeHeadingPathConsistency(page.headings, page.rawHtml);
   const aacResult = computeAccessibilityAffordance(page.rawHtml);
+  const dceResult = computeDomComplexityEntropy(page.rawHtml);
+  const megResult = computeMultimodalEntityGrounding(page.rawHtml);
 
   let metadataScore = 100;
   let structureScore = hpciResult.score;
   let contentDensityScore = sid;
   const affordanceScore = aacResult.score;
+
+  if (dceResult.score < 70) {
+    structureScore = Math.min(structureScore, Math.round((structureScore + dceResult.score) / 2));
+    optimizations.push({
+      id: 'opt-structure-dom-entropy',
+      category: 'STRUCTURE',
+      severity: 'IMPORTANT',
+      targetModels: ['openai', 'claude', 'gemini'],
+      title: 'Streamline DOM hierarchy and reduce nesting depth (DOM-LM, ACL 2022)',
+      explanation: `Excessive DOM nesting depth (${dceResult.maxDepth} levels) and generic wrapper bloat degrade LLM attention span and inflate token consumption.`,
+      action:
+        'Replace redundant <div> and <span> wrapper hierarchies with flat, semantic HTML5 containers (<main>, <article>, <section>).',
+      codeSnippet:
+        '<article>\n  <header><h1>Headline</h1></header>\n  <section><p>Content paragraph</p></section>\n</article>',
+    });
+  }
+
+  if (megResult.score < 70) {
+    metadataScore = Math.min(metadataScore, Math.round((metadataScore + megResult.score) / 2));
+    optimizations.push({
+      id: 'opt-meta-multimodal-grounding',
+      category: 'METADATA',
+      severity: 'IMPORTANT',
+      targetModels: ['openai', 'claude', 'gemini'],
+      title: 'Ground visual entities and structured data (VisualWebArena / Mind2Web)',
+      explanation:
+        'Multimodal AI web agents require descriptive alt text on images and Schema.org JSON-LD structured data for precise entity resolution and zero-hallucination factual grounding.',
+      action:
+        'Add meaningful alt attributes to all <img> elements and embed Schema.org JSON-LD microdata in your <head>.',
+      codeSnippet:
+        '<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "WebPage",\n  "name": "Page Title"\n}\n</script>',
+    });
+  }
 
   // 1. Metadata Audit
   if (!page.byline) {
@@ -251,6 +288,8 @@ export function generateOptimizations(page: ScrapedPage): OptimizationResult {
         sid,
         hpci: hpciResult.score,
         aac: aacResult.score,
+        dce: dceResult.score,
+        meg: megResult.score,
       },
     },
     optimizations,

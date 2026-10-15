@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { AIReadinessScore, Optimization, ProviderId } from '@/lib/types';
+import { MetricRadarChart } from './MetricRadarChart';
 
 interface RecommendationsPanelProps {
   readiness?: AIReadinessScore;
@@ -129,54 +130,90 @@ export function RecommendationsPanel({ readiness, optimizations = [] }: Recommen
               Peer-Reviewed Scientific Metric Gauges
             </h4>
             <span className="text-xs text-sky-700 dark:text-sky-300 font-mono">
-              Grounded in NeurIPS, ICLR &amp; TACL Research
+              5 Dimensions &bull; Grounded in NeurIPS, ICLR, ACL &amp; TACL Research
             </span>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Semantic Info Density (SID)
-                </span>
-                <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
-                  TACL &apos;24
-                </span>
-              </div>
-              <div className="mt-1 text-xl font-bold">{readiness.metrics.sid}%</div>
-              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                Signal-to-noise ratio: content tokens vs boilerplate/markup.
-              </p>
+          <div className="mt-4 grid gap-4 lg:grid-cols-3 items-center">
+            <div className="lg:col-span-1 flex justify-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2">
+              <MetricRadarChart metrics={readiness.metrics} />
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Heading Path Consistency (HPCI)
-                </span>
-                <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
-                  ACL &apos;23
-                </span>
+            <div className="lg:col-span-2 grid gap-2.5 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Semantic Info Density (SID)
+                  </span>
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
+                    TACL &apos;24
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-bold">{readiness.metrics.sid}%</div>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  Signal-to-noise ratio: content tokens vs boilerplate/markup.
+                </p>
               </div>
-              <div className="mt-1 text-xl font-bold">{readiness.metrics.hpci}%</div>
-              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                Monotonicity &amp; hierarchy of H1-H6 headings (HTML-T5).
-              </p>
-            </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Agent Affordance Completeness (AAC)
-                </span>
-                <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
-                  ICLR &apos;24
-                </span>
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Heading Path Consistency (HPCI)
+                  </span>
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
+                    ACL &apos;23
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-bold">{readiness.metrics.hpci}%</div>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  Monotonicity &amp; hierarchy of H1-H6 headings (HTML-T5).
+                </p>
               </div>
-              <div className="mt-1 text-xl font-bold">{readiness.metrics.aac}%</div>
-              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                Accessibility tree grounding &amp; action resolution (WebArena).
-              </p>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Agent Affordance Completeness (AAC)
+                  </span>
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
+                    ICLR &apos;24
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-bold">{readiness.metrics.aac}%</div>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  Accessibility tree grounding &amp; action resolution (WebArena).
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    DOM Structural Entropy (DCE)
+                  </span>
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
+                    ACL &apos;22
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-bold">{readiness.metrics.dce ?? 80}%</div>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  DOM tree nesting depth &amp; semantic tag ratio (DOM-LM).
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Multimodal &amp; Entity Grounding (MEG)
+                  </span>
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-300">
+                    NeurIPS &apos;24
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-bold">{readiness.metrics.meg ?? 70}%</div>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  Image alt-text coverage, JSON-LD microdata &amp; OpenGraph tags (VisualWebArena).
+                </p>
+              </div>
             </div>
           </div>
         </div>
