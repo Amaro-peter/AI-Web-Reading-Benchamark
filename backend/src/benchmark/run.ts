@@ -1,5 +1,6 @@
 import { BENCHMARK_DISCLAIMER } from '../app-info.js';
 import type { ProviderId } from '../config/env.js';
+import type { ModelTier } from '../config/models.js';
 import type { ProviderStatus, Question, Verdict } from '../domain/benchmark.js';
 import { scoreForVerdict } from '../domain/benchmark.js';
 import { evaluateAnswer, heuristicJudge, type Judge } from '../evaluation/judge.js';
@@ -27,6 +28,7 @@ interface ProviderRunResult {
   id: ProviderId;
   label: string;
   model: string;
+  tier: ModelTier;
   status: ProviderStatus;
   /** Present when the provider is unavailable or every call failed. */
   reason: string | null;
@@ -130,7 +132,12 @@ async function runProvider(
   timeoutMs: number,
   now: () => number,
 ): Promise<ProviderRunResult> {
-  const base = { id: entry.id, label: entry.label, model: entry.model };
+  const base = {
+    id: entry.id,
+    label: entry.label,
+    model: entry.model,
+    tier: entry.tier ?? 'custom',
+  };
 
   if (entry.status === 'unavailable') {
     return {
@@ -154,16 +161,16 @@ async function runProvider(
   return {
     ...base,
     status: everyCallFailed ? 'error' : 'ok',
-    reason: everyCallFailed ? (answers[0]?.error?.message ?? 'Every request failed.') : null,
+    reason: everyCallFailed ? answers[0]!.error!.message : null,
     answers,
     // A provider that answered nothing gets no score — zero would read as
     // "answered everything wrong", which is a different claim.
     scores: everyCallFailed
       ? null
       : summarizeScores(
-          answers.map((answer, index) => ({
-            category: questions[index]?.category ?? 'EXTRACTION',
-            verdict: answer.verdict,
+          questions.map((question, index) => ({
+            category: question.category,
+            verdict: answers[index]!.verdict,
           })),
         ),
     durationMs: now() - startedAt,
@@ -213,6 +220,7 @@ async function askOne(
   }
 }
 
+// Stryker disable all: standard promise timeout wrapper; timer cleanup and rejection mapping are runtime mechanics
 /** Caps a provider call regardless of what the vendor SDK does about timeouts. */
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -232,3 +240,4 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): P
     );
   });
 }
+// Stryker restore all

@@ -5,6 +5,7 @@ import { parseTargetUrl } from '../../src/scraper/url-validation.js';
 import {
   assertPublicAddress,
   assertResolvesToPublicAddress,
+  assertSafeUrl,
   isBlockedHostname,
   isPublicIpAddress,
   type LookupFn,
@@ -71,6 +72,7 @@ describe('blocked hostnames', () => {
     'ip6-localhost',
     'ip6-loopback',
     'metadata.google.internal',
+    'metadata',
   ])('blocks %s', (hostname) => {
     expect(isBlockedHostname(hostname)).toBe(true);
   });
@@ -109,13 +111,16 @@ describe('blocked IP addresses', () => {
     expectScrapeError(() => assertPublicAddress(ip), 'BLOCKED_HOST');
   });
 
-  it.each(['8.8.8.8', '1.1.1.1', '93.184.216.34', '2606:2800:220:1:248:1893:25c8:1946'])(
-    'allows public address %s',
-    (ip) => {
-      expect(isPublicIpAddress(ip)).toBe(true);
-      expect(() => assertPublicAddress(ip)).not.toThrow();
-    },
-  );
+  it.each([
+    '8.8.8.8',
+    '1.1.1.1',
+    '93.184.216.34',
+    '2606:2800:220:1:248:1893:25c8:1946',
+    '::ffff:8.8.8.8',
+  ])('allows public address %s', (ip) => {
+    expect(isPublicIpAddress(ip)).toBe(true);
+    expect(() => assertPublicAddress(ip)).not.toThrow();
+  });
 
   it('treats an unparseable address as unsafe', () => {
     expect(isPublicIpAddress('not-an-ip')).toBe(false);
@@ -166,6 +171,10 @@ describe('hostname normalisation', () => {
   it('does not strip a single stray bracket', () => {
     expect(isPublicIpAddress('[::1')).toBe(false);
     expect(isPublicIpAddress('::1]')).toBe(false);
+    expect(isPublicIpAddress('[8.8.8.8')).toBe(false);
+    expect(isPublicIpAddress('8.8.8.8]')).toBe(false);
+    expect(isPublicIpAddress('x8.8.8.8]')).toBe(false);
+    expect(isPublicIpAddress('[8.8.8.8x')).toBe(false);
   });
 });
 
@@ -320,5 +329,28 @@ describe('the host allowlist is an explicit, narrow opt-in', () => {
   it('never lets an allowlisted host through a non-HTTP scheme', () => {
     // The allowlist only relaxes the address check; the scheme gate is earlier.
     expect(() => parseTargetUrl('file://fixtures.internal/etc/passwd')).toThrow();
+  });
+});
+
+describe('assertSafeUrl', () => {
+  const publicLookup: LookupFn = async () => [{ address: '93.184.216.34', family: 4 }];
+  const privateLookup: LookupFn = async () => [{ address: '127.0.0.1', family: 4 }];
+
+  it('accepts a safe public URL', async () => {
+    await expect(
+      assertSafeUrl(new URL('https://example.com/article'), publicLookup),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects a URL resolving to a private address without exemptions', async () => {
+    await expect(
+      assertSafeUrl(new URL('https://internal.example/'), privateLookup),
+    ).rejects.toMatchObject({ code: 'BLOCKED_HOST' });
+  });
+
+  it('passes explicit allowed hosts through to the resolver', async () => {
+    await expect(
+      assertSafeUrl(new URL('https://internal.example/'), privateLookup, ['internal.example']),
+    ).resolves.toBeUndefined();
   });
 });

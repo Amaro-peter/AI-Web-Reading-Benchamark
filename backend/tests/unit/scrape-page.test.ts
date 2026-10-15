@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Browser } from 'playwright';
 import { scrapeOptionsFromEnv, scrapePage } from '../../src/scraper/index.js';
 import { loadEnv } from '../../src/config/env.js';
 import type { LookupFn } from '../../src/scraper/ssrf.js';
@@ -78,6 +79,34 @@ describe('scrapePage', () => {
     );
     expect(page.text.length).toBeLessThanOrEqual(400);
     expect(page.truncated).toBe(true);
+  });
+
+  it('falls back to browser rendering when a dynamic JS shell is encountered', async () => {
+    const mockBrowser = {
+      newContext: async () => ({
+        route: async () => undefined,
+        newPage: async () => ({
+          goto: async () => undefined,
+          waitForLoadState: async () => undefined,
+          waitForSelector: async () => undefined,
+          url: () => FIXTURE_URL,
+          content: async () => loadFixture('article'),
+        }),
+        close: async () => undefined,
+      }),
+      close: async () => undefined,
+    };
+
+    const spaShell =
+      '<html><body><div id="root"></div><script src="/app.js"></script></body></html>';
+    const page = await scrapePage(FIXTURE_URL, options, {
+      fetchImpl: htmlFetch(spaShell),
+      lookup: publicLookup,
+      launchBrowser: async () => mockBrowser as unknown as Browser,
+    });
+
+    expect(page.strategy).toBe('dynamic-playwright');
+    expect(page.title).toBe("Lisbon's tram network turns 150");
   });
 });
 

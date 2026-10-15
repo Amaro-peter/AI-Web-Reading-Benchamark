@@ -205,6 +205,24 @@ export function ResultsPanel({ result }: { result: BenchmarkResult }) {
         )}
 
         <div>
+          <dt className="text-slate-600 dark:text-slate-400">Extraction Engine</dt>
+          <dd className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+              {result.page.extractionStrategy}
+            </span>
+            {result.page.extractionStrategy === 'dynamic-playwright' ? (
+              <span className="inline-flex items-center gap-1 rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                <span>⚡</span> Dynamic Browser (Playwright / Chromium)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                <span>📄</span> Static Parser
+              </span>
+            )}
+          </dd>
+        </div>
+
+        <div>
           <dt className="text-slate-600 dark:text-slate-400">Grading method</dt>
           <dd>{result.judge}</dd>
         </div>

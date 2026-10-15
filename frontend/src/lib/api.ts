@@ -34,6 +34,7 @@ function isApiError(value: unknown): value is { error: ApiError } {
 interface RunBenchmarkOptions {
   signal?: AbortSignal;
   fetchImpl?: typeof fetch;
+  renderJs?: boolean;
 }
 
 /** Runs one benchmark against the backend. */
@@ -48,7 +49,10 @@ export async function runBenchmark(
     response = await doFetch(`${API_BASE_URL}/api/benchmark`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({
+        url,
+        ...(options.renderJs !== undefined ? { renderJs: options.renderJs } : {}),
+      }),
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {

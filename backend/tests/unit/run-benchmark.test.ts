@@ -192,6 +192,7 @@ describe('timeouts', () => {
 
     expect(run.results.gemini.status).toBe('error');
     expect(run.results.gemini.answers[0]?.error?.code).toBe('PROVIDER_TIMEOUT');
+    expect(run.results.gemini.answers[0]?.error?.message).toBe('gemini did not answer in time.');
   });
 
   it('does not let one slow provider prevent another from being scored', async () => {
@@ -229,9 +230,27 @@ describe('timing is measured with the injected clock', () => {
     });
 
     expect(run.durationMs).toBeGreaterThan(0);
+    expect(run.durationMs).toBeLessThan(1000);
     expect(run.results.gemini.durationMs).toBeGreaterThan(0);
+    expect(run.results.gemini.durationMs).toBeLessThan(1000);
     for (const answer of run.results.gemini.answers) {
       expect(answer.durationMs).toBeGreaterThan(0);
+      expect(answer.durationMs).toBeLessThan(1000);
+    }
+  });
+
+  it('measures answer duration accurately on failed calls', async () => {
+    const run = await runBenchmark({
+      ...options,
+      page,
+      now: steppingClock(10),
+      providers: [available('openai', new FailingProvider('openai', 'broken'))],
+    });
+    expect(run.results.openai.durationMs).toBeGreaterThan(0);
+    expect(run.results.openai.durationMs).toBeLessThan(1000);
+    for (const answer of run.results.openai.answers) {
+      expect(answer.durationMs).toBeGreaterThan(0);
+      expect(answer.durationMs).toBeLessThan(1000);
     }
   });
 
@@ -341,5 +360,32 @@ describe('the run envelope', () => {
 
     expect(run.judge).toBe('always-correct');
     expect(run.results.gemini.scores?.overall.percentage).toBe(100);
+  });
+
+  it('preserves provider model tier or defaults to custom', async () => {
+    const run = await runBenchmark({
+      ...options,
+      page,
+      providers: [
+        {
+          id: 'gemini',
+          label: 'Gemini',
+          model: 'm',
+          status: 'ok',
+          provider: new MockProvider({ name: 'gemini', model: 'm' }),
+          tier: 'flagship',
+        },
+        {
+          id: 'openai',
+          label: 'ChatGPT',
+          model: 'm',
+          status: 'ok',
+          provider: new MockProvider({ name: 'openai', model: 'm' }),
+        },
+      ],
+    });
+
+    expect(run.results.gemini.tier).toBe('flagship');
+    expect(run.results.openai.tier).toBe('custom');
   });
 });

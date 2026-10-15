@@ -33,6 +33,11 @@ describe('collectSecrets', () => {
     const env = loadEnv({ OPENAI_API_KEY: 'openai-key-value' });
     expect(collectSecrets(env)).toEqual(['openai-key-value']);
   });
+
+  it('collects other secrets such as ANTHROPIC_WORKSPACE_ID', () => {
+    const env = loadEnv({ ANTHROPIC_WORKSPACE_ID: 'workspace-secret-1234' });
+    expect(collectSecrets(env)).toEqual(['workspace-secret-1234']);
+  });
 });
 
 describe('redactSecrets', () => {

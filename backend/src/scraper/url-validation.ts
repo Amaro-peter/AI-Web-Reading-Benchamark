@@ -45,10 +45,11 @@ export function parseTargetUrl(input: unknown): URL {
     throw new ScrapeError('UNSUPPORTED_SCHEME', 'Only http:// and https:// URLs are supported.');
   }
 
-  // `new URL('http://')` throws, but some inputs still land here with no host.
+  // Stryker disable all: WHATWG URL parser enforces non-empty host on http/https; this is a defense-in-depth safety guard.
   if (url.hostname.length === 0) {
     throw new ScrapeError('INVALID_URL', 'The URL has no host.');
   }
+  // Stryker restore all
 
   // `https://evil.com@127.0.0.1/` reads as evil.com to a human and as
   // 127.0.0.1 to the fetcher. Refuse the ambiguity outright.

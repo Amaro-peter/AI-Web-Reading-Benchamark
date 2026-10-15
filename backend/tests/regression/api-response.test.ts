@@ -126,6 +126,7 @@ describe('regression: response shape', () => {
       'reason',
       'scores',
       'status',
+      'tier',
     ]);
     expect(Object.keys(body.results.gemini.answers[0]).sort()).toEqual([
       'answer',

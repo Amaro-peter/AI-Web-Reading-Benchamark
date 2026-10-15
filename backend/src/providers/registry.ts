@@ -25,7 +25,7 @@ export function createProviders(env: Env): RegisteredProvider[] {
 
 function createProvider(env: Env, id: ProviderId): RegisteredProvider {
   const config = modelConfigFor(env, id);
-  const base = { id, label: config.label, model: config.model };
+  const base = { id, label: config.label, model: config.model, tier: config.tier };
 
   if (env.AI_PROVIDER_MODE === 'mock') {
     return {

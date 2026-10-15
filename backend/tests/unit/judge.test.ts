@@ -57,6 +57,15 @@ describe('heuristicJudge', () => {
     expect(verdictFor('1914', '19')).toBe('INCORRECT');
   });
 
+  it('grades matching answers CORRECT even when composed of filler words', () => {
+    expect(verdictFor('it was that', 'it was that')).toBe('CORRECT');
+  });
+
+  it('grades empty or whitespace actual answer as INCORRECT even if expected is empty or punctuation', () => {
+    expect(verdictFor('', '')).toBe('INCORRECT');
+    expect(verdictFor('...', '...')).toBe('INCORRECT');
+  });
+
   it('uses a documented partial threshold', () => {
     expect(PARTIAL_THRESHOLD).toBe(0.5);
   });
@@ -75,12 +84,36 @@ describe('abstention is a claim, not a near miss', () => {
   it('is INCORRECT when a model invents an answer the page does not support', () => {
     expect(verdictFor(NOT_IN_PAGE, 'Marta Ribeiro')).toBe('INCORRECT');
   });
+
+  it('does not give partial or sentence credit when an abstention is involved', () => {
+    expect(verdictFor(NOT_IN_PAGE, 'The page is not complete')).toBe('INCORRECT');
+    expect(verdictFor(NOT_IN_PAGE, 'Not in library')).toBe('INCORRECT');
+    expect(verdictFor('not in book', NOT_IN_PAGE)).toBe('INCORRECT');
+  });
 });
 
 describe('evaluateAnswer', () => {
   it('accepts any of the acceptable spellings', () => {
     const q = question({ expectedAnswer: '3,200', acceptableAnswers: ['3200'] });
     expect(evaluateAnswer(heuristicJudge, q, '3200')).toBe('CORRECT');
+  });
+
+  it('stops evaluating candidates as soon as CORRECT is reached', () => {
+    let callCount = 0;
+    const countingJudge = {
+      name: 'counting',
+      evaluate: () => {
+        callCount += 1;
+        return 'CORRECT' as const;
+      },
+    };
+    const q = question({
+      expectedAnswer: 'First',
+      acceptableAnswers: ['Second', 'Third'],
+    });
+    const result = evaluateAnswer(countingJudge, q, 'First');
+    expect(result).toBe('CORRECT');
+    expect(callCount).toBe(1);
   });
 
   it('keeps the best verdict across candidates', () => {
@@ -137,6 +170,17 @@ describe('numbers must match exactly for partial credit', () => {
 
   it('does not treat a longer number as a match', () => {
     expect(verdictFor('year 1914 opening', 'year 19141 opening')).toBe('INCORRECT');
+  });
+
+  it('refuses partial credit when one of multiple expected numbers is missing or wrong', () => {
+    expect(verdictFor('buses 28 and 15', 'buses 28 and 99')).toBe('INCORRECT');
+  });
+
+  it('does not treat mixed alphanumeric tokens as numbers that block partial credit', () => {
+    expect(verdictFor('the 28th tram route of Lisbon', 'the tram route of Lisbon')).toBe('PARTIAL');
+    expect(verdictFor('the route28 tram line of Lisbon', 'the tram line of Lisbon')).toBe(
+      'PARTIAL',
+    );
   });
 });
 

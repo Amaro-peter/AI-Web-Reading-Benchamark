@@ -51,10 +51,13 @@ export interface ScoreSummary {
   byCategory: Record<QuestionCategory, ScoreBreakdown>;
 }
 
+export type ModelTier = 'flagship' | 'fast' | 'custom';
+
 export interface ProviderResult {
   id: ProviderId;
   label: string;
   model: string;
+  tier?: ModelTier;
   status: ProviderStatus;
   reason: string | null;
   answers: AnswerRecord[];

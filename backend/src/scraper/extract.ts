@@ -48,6 +48,9 @@ const MIN_READABILITY_CHARS = 200;
 
 const MAX_HEADINGS = 20;
 
+export type ExtractionStrategy =
+  'readability' | 'semantic-article' | 'fallback' | 'dynamic-playwright';
+
 export interface ExtractedPage {
   title: string;
   byline: string | null;
@@ -63,7 +66,7 @@ export interface ExtractedPage {
   charCount: number;
   truncated: boolean;
   /** How the text was obtained — useful when a result looks wrong. */
-  strategy: 'readability' | 'fallback';
+  strategy: ExtractionStrategy;
 }
 
 interface ExtractOptions {
@@ -91,9 +94,22 @@ export function extractContent(html: string, url: string, options: ExtractOption
     const article = runReadability(dom, url);
     const readableText = article ? normalizeBlockText(article.textContent ?? '') : '';
 
-    const useReadability = readableText.length >= MIN_READABILITY_CHARS;
-    const fullText = useReadability ? readableText : fallbackText(document);
-    const strategy: ExtractedPage['strategy'] = useReadability ? 'readability' : 'fallback';
+    let fullText = '';
+    let strategy: ExtractionStrategy = 'readability';
+
+    if (readableText.length >= MIN_READABILITY_CHARS) {
+      fullText = readableText;
+      strategy = 'readability';
+    } else {
+      const semanticText = extractSemanticArticle(document);
+      if (semanticText.length >= MIN_READABILITY_CHARS) {
+        fullText = semanticText;
+        strategy = 'semantic-article';
+      } else {
+        fullText = fallbackText(document);
+        strategy = 'fallback';
+      }
+    }
 
     const wordCount = countWords(fullText);
     if (wordCount < MIN_CONTENT_WORDS) {
@@ -178,6 +194,18 @@ function runReadability(dom: JSDOM, url: string): ReadabilityResult {
   }
 }
 
+function extractSemanticArticle(document: Document): string {
+  const container = document.querySelector('article, main, [role="main"]');
+  if (container === null) {
+    return '';
+  }
+  const clone = container.cloneNode(true) as Element;
+  clone.querySelectorAll(NOISE_SELECTORS).forEach((node) => {
+    node.remove();
+  });
+  return normalizeBlockText(clone.textContent ?? '');
+}
+
 function fallbackText(document: Document): string {
   const body = document.body;
   if (body === null) {
@@ -199,18 +227,51 @@ function collectHeadings(dom: JSDOM, articleHtml: string | null, document: Docum
   clone.querySelectorAll(NOISE_SELECTORS).forEach((node) => {
     node.remove();
   });
-  return dedupe(
-    [...clone.querySelectorAll('h1, h2, h3, h4')]
+
+  // 1. Standard HTML headings
+  const standard = dedupe(
+    [...clone.querySelectorAll('h1, h2, h3, h4, h5, h6')]
       .map((el) => normalizeWhitespace(el.textContent ?? ''))
       .filter((text) => text.length > 0),
   );
+  if (standard.length > 0) {
+    return standard;
+  }
+
+  // 2. Structural ARIA headings & visual heading class patterns
+  const structural = dedupe(
+    [
+      ...clone.querySelectorAll(
+        '[role="heading"], [class*="heading" i], [class*="title" i], [class*="section-header" i], [class*="headline" i], dt',
+      ),
+    ]
+      .map((el) => normalizeWhitespace(el.textContent ?? ''))
+      .filter((text) => text.length >= 3 && text.length <= 100),
+  );
+  if (structural.length > 0) {
+    return structural;
+  }
+
+  // 3. Fallback: Identify structural paragraphs / section lead-ins
+  const paragraphs = [...clone.querySelectorAll('p, section > div, article > div')]
+    .map((el) => normalizeWhitespace(el.textContent ?? ''))
+    .filter((text) => text.length > 25);
+
+  if (paragraphs.length >= 2) {
+    return paragraphs.slice(0, 5).map((p, i) => {
+      const lead = p.split(/[.:?!]/)[0]?.trim() ?? `Section ${i + 1}`;
+      return lead.length > 60 ? `${lead.slice(0, 57)}...` : lead;
+    });
+  }
+
+  return [];
 }
 
 function headingsFromHtml(dom: JSDOM, html: string): string[] {
   const container = dom.window.document.createElement('div');
   container.innerHTML = html;
   return dedupe(
-    [...container.querySelectorAll('h1, h2, h3, h4')]
+    [...container.querySelectorAll('h1, h2, h3, h4, h5, h6')]
       .map((el) => normalizeWhitespace(el.textContent ?? ''))
       .filter((text) => text.length > 0),
   );

@@ -12,6 +12,7 @@ import type { FetchPageDeps } from '../../scraper/fetch-page.js';
 const BenchmarkRequestSchema = z
   .object({
     url: z.string({ required_error: 'A url is required.' }).min(1, 'A url is required.'),
+    renderJs: z.boolean().optional(),
   })
   .strict();
 
@@ -43,7 +44,14 @@ export function benchmarkRoutes(deps: BenchmarkRouteDeps): FastifyPluginAsync {
 
       // A ScrapeError thrown here is turned into the right status by the
       // application-level error handler.
-      const page = await scrapePage(parsed.data.url, scrapeOptions, deps.scrapeDeps);
+      const page = await scrapePage(
+        parsed.data.url,
+        {
+          ...scrapeOptions,
+          ...(parsed.data.renderJs !== undefined ? { renderJs: parsed.data.renderJs } : {}),
+        },
+        deps.scrapeDeps,
+      );
 
       const run = await runBenchmark({
         page,

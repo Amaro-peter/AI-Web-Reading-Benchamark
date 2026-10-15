@@ -50,12 +50,15 @@ export class ProviderError extends Error {
   }
 }
 
+import type { ModelTier } from '../config/models.js';
+
 export interface AvailableProvider {
   id: ProviderId;
   label: string;
   model: string;
   status: 'ok';
   provider: AIProvider;
+  tier?: ModelTier;
 }
 
 export interface UnavailableProvider {
@@ -65,6 +68,7 @@ export interface UnavailableProvider {
   status: 'unavailable';
   /** Why it is unavailable — e.g. the name of the missing env variable. */
   reason: string;
+  tier?: ModelTier;
 }
 
 export type RegisteredProvider = AvailableProvider | UnavailableProvider;

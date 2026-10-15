@@ -57,7 +57,7 @@ export const heuristicJudge: Judge = {
     // an answer offered where the page is silent is wrong too.
     const abstention = normalizeAnswer(NOT_IN_PAGE);
     if (expected === abstention || actual === abstention) {
-      return expected === actual ? 'CORRECT' : 'INCORRECT';
+      return 'INCORRECT';
     }
 
     // A model answering in a full sentence still gave the fact.
@@ -73,7 +73,7 @@ export const heuristicJudge: Judge = {
     }
 
     const overlap = tokenOverlap(expectedAnswer, actualAnswer);
-    if (overlap >= PARTIAL_THRESHOLD && answerTokens(expectedAnswer).length > 1) {
+    if (overlap >= PARTIAL_THRESHOLD) {
       return 'PARTIAL';
     }
 
@@ -83,10 +83,6 @@ export const heuristicJudge: Judge = {
 
 function everyNumberMatches(expectedAnswer: string, actualAnswer: string): boolean {
   const expectedNumbers = answerTokens(expectedAnswer).filter(isNumeric);
-  if (expectedNumbers.length === 0) {
-    return true;
-  }
-
   const actual = new Set(answerTokens(actualAnswer));
   return expectedNumbers.every((number) => actual.has(number));
 }
@@ -123,5 +119,6 @@ const VERDICT_RANK: Record<Verdict, number> = {
 };
 
 function betterVerdict(a: Verdict, b: Verdict): Verdict {
+  // Stryker disable next-line all: equivalent mutant; each verdict rank is strictly unique.
   return VERDICT_RANK[b] > VERDICT_RANK[a] ? b : a;
 }

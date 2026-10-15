@@ -109,4 +109,27 @@ describe('extractContent failure modes', () => {
     const result = extractContent(html, FIXTURE_URL, options);
     expect(result.text).toContain('A plain page with no semantic article wrapper');
   });
+
+  it('detects structural ARIA headings when standard h1-h6 tags are absent', () => {
+    const html =
+      '<html><body><article>' +
+      '<div role="heading" aria-level="2">Accessible SPA Section Title</div>' +
+      '<p>This document uses ARIA roles rather than raw h1 tags. It contains more than enough words to satisfy readability requirements completely.</p>' +
+      '<div class="section-title">Visual CSS Class Heading</div>' +
+      '<p>Second paragraph explaining the details of the implementation under this heading with dozens of words.</p>' +
+      '</article></body></html>';
+    const result = extractContent(html, FIXTURE_URL, options);
+    expect(result.headings).toContain('Accessible SPA Section Title');
+    expect(result.headings).toContain('Visual CSS Class Heading');
+  });
+
+  it('identifies structural section lead-ins when no headings of any kind exist', () => {
+    const html =
+      '<html><body><main>' +
+      '<p>First thematic section covering the historical origins of the tram network in Lisbon with detailed facts.</p>' +
+      '<p>Second thematic section exploring modern electric rolling stock and fleet maintenance across the municipality.</p>' +
+      '</main></body></html>';
+    const result = extractContent(html, FIXTURE_URL, options);
+    expect(result.headings.length).toBeGreaterThanOrEqual(1);
+  });
 });

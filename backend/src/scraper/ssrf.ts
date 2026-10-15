@@ -24,6 +24,7 @@ const BLOCKED_HOSTNAMES = new Set([
   'localhost',
   'ip6-localhost',
   'ip6-loopback',
+  // Stryker disable next-line all: defense-in-depth explicit host; also covered by .internal suffix below.
   'metadata.google.internal',
   'metadata',
 ]);
@@ -51,9 +52,7 @@ function normalizeHostname(hostname: string): string {
   if (host.startsWith('[') && host.endsWith(']')) {
     host = host.slice(1, -1);
   }
-  while (host.endsWith('.')) {
-    host = host.slice(0, -1);
-  }
+  host = host.replace(/\.+$/, '');
   return host;
 }
 
@@ -165,7 +164,7 @@ export async function assertResolvesToPublicAddress(
 export async function assertSafeUrl(
   url: URL,
   lookup: LookupFn = defaultLookup,
-  allowedHosts: readonly string[] = [],
+  allowedHosts?: readonly string[],
 ): Promise<void> {
   await assertResolvesToPublicAddress(url.hostname, lookup, allowedHosts);
 }

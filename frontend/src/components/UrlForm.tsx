@@ -114,9 +114,15 @@ export function UrlForm({ onSubmit, isRunning }: UrlFormProps) {
         </button>
       </div>
 
-      <p id={hintId} className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-        A public http:// or https:// page. Private and local addresses are refused.
-      </p>
+      <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-sm text-slate-600 dark:text-slate-400">
+        <p id={hintId}>
+          A public http:// or https:// page. Private and local addresses are refused.
+        </p>
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+          Supports React, Next.js &amp; dynamic SPAs via Playwright
+        </span>
+      </div>
     </form>
   );
 }
